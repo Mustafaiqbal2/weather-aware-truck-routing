@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from core.risk import RiskLevel
@@ -13,6 +15,7 @@ LEVEL_KEYS = [lvl.key for lvl in RiskLevel]
 MAX_LOAD_LB = 120_000
 
 
+@extend_schema_field(OpenApiTypes.STR)
 class LocalDateTimeField(serializers.Field[datetime | None, str, str, Any]):
     """A wall-clock time with no offset, e.g. "2026-11-02T06:30" in the origin's time zone.
 
