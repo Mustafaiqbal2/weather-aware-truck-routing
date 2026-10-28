@@ -13,14 +13,20 @@ LEVEL_KEYS = [lvl.key for lvl in RiskLevel]
 MAX_LOAD_LB = 120_000
 
 
-class LocalDateTimeField(serializers.Field[datetime, str, str, Any]):
-    """A wall-clock time with no offset, e.g. "2026-11-02T06:30" in the origin's time zone."""
+class LocalDateTimeField(serializers.Field[datetime | None, str, str, Any]):
+    """A wall-clock time with no offset, e.g. "2026-11-02T06:30" in the origin's time zone.
+
+    The literal "now" means leave immediately. The browser can't know the origin's time
+    zone, so it shouldn't guess what "now" is there.
+    """
 
     default_error_messages = {  # noqa: RUF012
-        "invalid": "Use the format YYYY-MM-DDTHH:MM, without a time zone offset.",
+        "invalid": 'Use "now" or the format YYYY-MM-DDTHH:MM, without a time zone offset.',
     }
 
-    def to_internal_value(self, data: Any) -> datetime:
+    def to_internal_value(self, data: Any) -> datetime | None:
+        if data == "now":
+            return None
         try:
             value = datetime.fromisoformat(str(data))
         except ValueError:
@@ -29,8 +35,8 @@ class LocalDateTimeField(serializers.Field[datetime, str, str, Any]):
             self.fail("invalid")
         return value
 
-    def to_representation(self, value: datetime) -> str:
-        return value.isoformat(timespec="minutes")
+    def to_representation(self, value: datetime | None) -> str:
+        return "now" if value is None else value.isoformat(timespec="minutes")
 
 
 # --- Requests ----------------------------------------------------------------------
@@ -45,7 +51,9 @@ class PlaceSerializer(serializers.Serializer[Any]):
 class RoutesRequestSerializer(serializers.Serializer[Any]):
     origin = PlaceSerializer()
     destination = PlaceSerializer()
-    departure = LocalDateTimeField(help_text="Local time at the origin, e.g. 2026-11-02T06:30")
+    departure = LocalDateTimeField(
+        help_text='"now", or local time at the origin such as 2026-11-02T06:30'
+    )
     load_lb = serializers.FloatField(min_value=0, max_value=MAX_LOAD_LB)
     interval_mi = serializers.ChoiceField(choices=[10, 25, 50], default=25)
 

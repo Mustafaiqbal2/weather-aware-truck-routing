@@ -207,3 +207,26 @@ def test_heatmap_frames_cover_the_corridor(client: APIClient, fake_weather: Any)
     assert wind[0] * data["scales"]["wind"] == pytest.approx(45 / 1.609344, abs=0.5)
     risk = base64.b64decode(data["frames"]["risk"])
     assert 1 <= risk[0] * data["scales"]["risk"] < 2  # Moderate band
+
+
+@pytest.mark.usefixtures("fake_tomtom")
+def test_leave_now(client: APIClient) -> None:
+    data = _plan(client, departure="now")
+    departure = datetime.fromisoformat(data["departure"])
+    assert abs((departure - datetime.now(DENVER)).total_seconds()) < 120
+
+
+def test_fake_routing_is_ignored_outside_debug(client: APIClient, settings: Any) -> None:
+    settings.DEBUG = False
+    settings.FAKE_ROUTING = True
+    settings.TOMTOM_API_KEY = ""
+    response = client.post("/api/routes", _routes_body(), format="json")
+    assert response.json()["error"]["code"] == "not_configured"
+
+
+def test_fake_routing_in_debug(client: APIClient, settings: Any, fake_weather: Any) -> None:
+    settings.DEBUG = True
+    settings.FAKE_ROUTING = True
+    plan = _plan(client)
+    assert len(plan["routes"]) == 3
+    assert _assess(client, plan)["recommendation"]["route_id"] in {"A", "B", "C"}

@@ -64,7 +64,6 @@ def fake_tomtom(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
         return [fake_route(bend, 4.9, ["US-40", "I-70"])]
 
     monkeypatch.setattr(tomtom, "calculate_routes", calculate_routes)
-    monkeypatch.setattr("trips.services.tomtom.calculate_routes", calculate_routes)
     return calls
 
 

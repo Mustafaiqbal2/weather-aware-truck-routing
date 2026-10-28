@@ -304,7 +304,7 @@ components:
         max_level:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/MaxLevelEnum'
+          - $ref: '#/components/schemas/RiskLevelEnum'
           - $ref: '#/components/schemas/NullEnum'
       required:
       - average_risk
@@ -590,48 +590,6 @@ components:
         * `10` - 10
         * `25` - 25
         * `50` - 50
-    LevelEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel
-    LoadEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel
-    MaxLevelEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel
     Miles:
       type: object
       properties:
@@ -707,20 +665,6 @@ components:
       - label
       - lat
       - lon
-    RainEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel
     Recommendation:
       type: object
       properties:
@@ -734,6 +678,9 @@ components:
           $ref: '#/components/schemas/CriterionEnum'
         reason:
           type: string
+        tradeoff:
+          type: string
+          nullable: true
         safe:
           type: boolean
         warnings:
@@ -746,26 +693,41 @@ components:
       - reason
       - route_id
       - safe
+      - tradeoff
       - warnings
+    RiskLevelEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
     RiskOut:
       type: object
       properties:
         level:
-          $ref: '#/components/schemas/LevelEnum'
+          $ref: '#/components/schemas/RiskLevelEnum'
         value:
           type: integer
           maximum: 4
           minimum: 0
         wind:
-          $ref: '#/components/schemas/WindEnum'
+          $ref: '#/components/schemas/RiskLevelEnum'
         rain:
-          $ref: '#/components/schemas/RainEnum'
+          $ref: '#/components/schemas/RiskLevelEnum'
         snow:
-          $ref: '#/components/schemas/SnowEnum'
+          $ref: '#/components/schemas/RiskLevelEnum'
         load:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/LoadEnum'
+          - $ref: '#/components/schemas/RiskLevelEnum'
           - $ref: '#/components/schemas/NullEnum'
         drivers:
           type: array
@@ -868,7 +830,7 @@ components:
           $ref: '#/components/schemas/PlaceRequest'
         departure:
           type: string
-          description: Local time at the origin, e.g. 2026-11-02T06:30
+          description: '"now", or local time at the origin such as 2026-11-02T06:30'
         load_lb:
           type: number
           format: double
@@ -914,20 +876,6 @@ components:
       - origin
       - routes
       - warnings
-    SnowEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel
     SourceEnum:
       enum:
       - tomtom
@@ -971,17 +919,3 @@ components:
       - valid_to
       - weather_code
       - wind_mph
-    WindEnum:
-      enum:
-      - low
-      - moderate
-      - high
-      - severe
-      - no_travel
-      type: string
-      description: |-
-        * `low` - low
-        * `moderate` - moderate
-        * `high` - high
-        * `severe` - severe
-        * `no_travel` - no_travel

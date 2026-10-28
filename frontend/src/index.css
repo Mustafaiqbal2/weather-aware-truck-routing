@@ -1,0 +1,192 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * Night dispatch design tokens.
+ * Risk colours step in lightness as well as hue (teal, yellow, orange, red, violet), so the
+ * five levels stay distinguishable with red-green colour blindness. Every use of a risk
+ * colour is paired with a text label.
+ */
+@theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  --color-ink-950: #07090c;
+  --color-ink-900: #0b0e13;
+  --color-ink-850: #0f131a;
+  --color-ink-800: #141922;
+  --color-ink-750: #1a2029;
+  --color-ink-700: #232a35;
+  --color-ink-600: #2f3744;
+  --color-line: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.12);
+
+  --color-fg: #e7eaf0;
+  --color-fg-muted: #9aa3b2;
+  --color-fg-faint: #677285;
+
+  --color-amber: #f5a524;
+  --color-amber-bright: #ffc35c;
+  --color-amber-soft: rgb(245 165 36 / 0.14);
+
+  --color-risk-low: #3fb8af;
+  --color-risk-moderate: #f2d13d;
+  --color-risk-high: #ff8a3d;
+  --color-risk-severe: #e5484d;
+  --color-risk-no-travel: #c04cf5;
+  --color-risk-unknown: #5b6474;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-900 font-sans text-fg antialiased;
+    font-size: 14px;
+    line-height: 1.45;
+    font-feature-settings: 'ss01', 'cv11';
+    overscroll-behavior: none;
+  }
+
+  ::selection {
+    background: rgb(245 165 36 / 0.35);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-amber);
+    outline-offset: 2px;
+  }
+
+  input[type='time']::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-600) transparent;
+  }
+}
+
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-ink-750) 0%,
+    var(--color-ink-700) 40%,
+    var(--color-ink-750) 80%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* Lenis (smooth scrolling inside the sidebar) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* MapLibre controls and popups, restyled for the dark console */
+.maplibregl-map {
+  font-family: var(--font-sans);
+}
+.maplibregl-ctrl-group {
+  background: var(--color-ink-850) !important;
+  border: 1px solid var(--color-line-strong);
+  box-shadow: none !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--color-line) !important;
+}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(0.85);
+}
+.maplibregl-ctrl-attrib {
+  background: rgb(11 14 19 / 0.7) !important;
+  color: var(--color-fg-faint);
+  font-size: 10px;
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--color-fg-muted);
+}
+.maplibregl-ctrl-attrib-button {
+  filter: invert(0.8);
+}
+.maplibregl-popup-content {
+  background: var(--color-ink-800);
+  color: var(--color-fg);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 12px;
+  padding: 0;
+  box-shadow:
+    0 12px 40px rgb(0 0 0 / 0.55),
+    0 0 0 1px rgb(0 0 0 / 0.4);
+}
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--color-ink-800);
+}
+.maplibregl-popup-anchor-top .maplibregl-popup-tip {
+  border-bottom-color: var(--color-ink-800);
+}
+.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--color-ink-800);
+}
+.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--color-ink-800);
+}
+.maplibregl-popup-close-button {
+  color: var(--color-fg-muted);
+  font-size: 18px;
+  padding: 2px 8px;
+}
+
+/* react-day-picker v10, themed */
+.rdp-root {
+  --rdp-accent-color: var(--color-amber);
+  --rdp-accent-background-color: var(--color-amber-soft);
+  --rdp-day-height: 34px;
+  --rdp-day-width: 34px;
+  --rdp-day_button-height: 32px;
+  --rdp-day_button-width: 32px;
+  --rdp-today-color: var(--color-amber-bright);
+  --rdp-selected-border: 0;
+  font-size: 13px;
+}
+.rdp-selected .rdp-day_button {
+  background: var(--color-amber);
+  color: var(--color-ink-950);
+  font-weight: 600;
+}
+.rdp-disabled {
+  opacity: 0.3;
+}

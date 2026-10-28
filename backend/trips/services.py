@@ -37,7 +37,7 @@ from core.units import (
     mm_to_in,
 )
 from core.weather_align import weather_at
-from providers import openmeteo, tomtom
+from providers import openmeteo, routing, tomtom
 from providers.http import UpstreamError
 
 from .errors import ProviderError
@@ -108,14 +108,19 @@ class _Option:
 def plan_routes(
     origin: Place,
     destination: Place,
-    departure_local: datetime,
+    departure_local: datetime | None,
     load_lb: float,
     interval_mi: int,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    now = now or datetime.now(UTC)
+    """Plan routes. ``departure_local`` is wall-clock time at the origin; None means now."""
+    now = (now or datetime.now(UTC)).replace(second=0, microsecond=0)
     origin_tz = tz_at(origin.lat, origin.lon)
-    departure = departure_local.replace(tzinfo=ZoneInfo(origin_tz)).astimezone(UTC)
+    departure = (
+        departure_local.replace(tzinfo=ZoneInfo(origin_tz)).astimezone(UTC)
+        if departure_local is not None
+        else now
+    )
     if departure < now - PAST_GRACE:
         raise TripInputError("Departure time is in the past.")
     if departure > now + MAX_ADVANCE:
@@ -168,7 +173,7 @@ def _route_options(
     weight_kg = round(lb_to_kg(gross_weight_lb(load_lb)))
 
     def call(locations: list[Coord], alternatives: int) -> list[tomtom.RawRoute]:
-        return tomtom.calculate_routes(
+        return routing.calculate_routes(
             locations, depart_at=depart_at, gross_weight_kg=weight_kg,
             max_alternatives=alternatives,
         )  # fmt: skip
@@ -425,7 +430,7 @@ def heatmap(lines: Sequence[Sequence[Coord]], start: datetime, load_lb: float) -
 
 def geocode(query: str) -> list[dict[str, Any]]:
     try:
-        places = tomtom.search_places(query)
+        places = routing.search_places(query)
     except UpstreamError as exc:
         raise upstream_error(exc) from exc
     return [p.__dict__ for p in places]
