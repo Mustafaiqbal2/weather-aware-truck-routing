@@ -24,6 +24,7 @@ export function MapView({ view }: { view: TripView | undefined }) {
   const [ready, setReady] = useState(false)
   const [labelLayer, setLabelLayer] = useState<string>()
   const [cursor, setCursor] = useState<string>('')
+  const [mapError, setMapError] = useState<string | null>(null)
   const selectedCheckpoint = useTrip((s) => s.selectedCheckpoint)
   const hoverRoute = useTrip((s) => s.hoverRoute)
   const selectRoute = useTrip((s) => s.selectRoute)
@@ -88,52 +89,85 @@ export function MapView({ view }: { view: TripView | undefined }) {
   )
 
   return (
-    <MapGL
-      ref={mapRef}
-      initialViewState={INITIAL_VIEW}
-      mapStyle={MAP_STYLE}
-      onLoad={onLoad}
-      interactiveLayerIds={ready && view ? INTERACTIVE : []}
-      onMouseMove={onMouseMove}
-      onMouseLeave={() => {
-        setCursor('')
-        hoverRoute(null)
-      }}
-      onClick={onClick}
-      cursor={cursor}
-      dragRotate={false}
-      pitchWithRotate={false}
-      touchPitch={false}
-      maxPitch={0}
-      attributionControl={{ compact: true }}
-      style={{ position: 'absolute', inset: 0 }}
-    >
-      <NavigationControl position="top-right" showCompass={false} />
-      {ready && (
-        <>
-          <HeatmapHost plan={view?.plan} beforeId={labelLayer} />
-          {view && <RouteLayers routes={view.routes} beforeId={labelLayer} />}
-          {view && (
-            <CheckpointLayers
-              data={checkpoints}
-              selected={
-                selectedCheckpoint
-                  ? { routeId: selectedCheckpoint.routeId, index: selectedCheckpoint.index }
-                  : null
-              }
-            />
-          )}
-          {view?.recommendation && (
-            <TruckLayer
-              routes={view.routes}
-              startMs={Math.floor(Date.parse(view.plan.departure) / 3_600_000) * 3_600_000}
-            />
-          )}
-          {view && <RouteLabels routes={view.routes} />}
-          <CheckpointPopup view={view} />
-        </>
+    <>
+      <MapGL
+        ref={mapRef}
+        initialViewState={INITIAL_VIEW}
+        mapStyle={MAP_STYLE}
+        onLoad={() => {
+          setMapError(null)
+          onLoad()
+        }}
+        onError={(e) => {
+          // Tile hiccups after load are transient; a style that never loads is not.
+          if (!ready) setMapError(e.error?.message ?? 'The map failed to load.')
+        }}
+        interactiveLayerIds={ready && view ? INTERACTIVE : []}
+        onMouseMove={onMouseMove}
+        onMouseLeave={() => {
+          setCursor('')
+          hoverRoute(null)
+        }}
+        onClick={onClick}
+        cursor={cursor}
+        dragRotate={false}
+        pitchWithRotate={false}
+        touchPitch={false}
+        maxPitch={0}
+        attributionControl={{ compact: true }}
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        <NavigationControl position="top-right" showCompass={false} />
+        {ready && (
+          <>
+            <HeatmapHost plan={view?.plan} beforeId={labelLayer} />
+            {view && <RouteLayers routes={view.routes} beforeId={labelLayer} />}
+            {view && (
+              <CheckpointLayers
+                data={checkpoints}
+                selected={
+                  selectedCheckpoint
+                    ? { routeId: selectedCheckpoint.routeId, index: selectedCheckpoint.index }
+                    : null
+                }
+              />
+            )}
+            {view?.recommendation && (
+              <TruckLayer
+                routes={view.routes}
+                startMs={Math.floor(Date.parse(view.plan.departure) / 3_600_000) * 3_600_000}
+              />
+            )}
+            {view && <RouteLabels routes={view.routes} />}
+            <CheckpointPopup view={view} />
+          </>
+        )}
+      </MapGL>
+      {mapError && !ready && (
+        <div className="absolute inset-0 grid place-items-center p-6">
+          <div
+            role="alert"
+            className="max-w-sm rounded-xl border border-line-strong bg-ink-850 p-4 text-center"
+          >
+            <p className="text-[14px] font-medium text-fg">The map couldn't load.</p>
+            <p className="mt-1 text-[12.5px] text-fg-muted">
+              The basemap service is unreachable right now. Routes, risk and the recommendation still work in
+              the sidebar.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setMapError(null)
+                mapRef.current?.getMap().setStyle(MAP_STYLE)
+              }}
+              className="mt-3 rounded-lg border border-line-strong bg-ink-800 px-3 py-1.5 text-[13px] text-fg hover:bg-ink-750"
+            >
+              Retry map
+            </button>
+          </div>
+        </div>
       )}
-    </MapGL>
+    </>
   )
 }
 

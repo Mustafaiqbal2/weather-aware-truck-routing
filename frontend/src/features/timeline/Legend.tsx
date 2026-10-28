@@ -1,9 +1,10 @@
+import { memo } from 'react'
 import { RAMPS } from '@/features/heatmap/colormaps'
 import { LEVEL_COLOR, LEVEL_LABEL, LEVELS } from '@/lib/risk'
 import type { HeatVariable } from '@/store/trip'
 
 /** Legend for the active heatmap layer: risk levels as labelled swatches, weather as a ramp. */
-export function Legend({ variable }: { variable: HeatVariable }) {
+export const Legend = memo(function Legend({ variable }: { variable: HeatVariable }) {
   if (variable === 'risk') {
     return (
       <ul className="flex flex-wrap items-center gap-x-3 gap-y-1" aria-label="Risk levels">
@@ -49,4 +50,4 @@ export function Legend({ variable }: { variable: HeatVariable }) {
       <span className="text-[10.5px] text-fg-faint">ticks = risk thresholds</span>
     </div>
   )
-}
+})

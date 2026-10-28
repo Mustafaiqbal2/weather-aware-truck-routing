@@ -1,13 +1,12 @@
-import 'react-day-picker/style.css'
-import { addDays, format, startOfDay } from 'date-fns'
 import { CalendarDays } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Popover } from 'radix-ui'
-import { useState } from 'react'
-import { DayPicker } from 'react-day-picker'
+import { lazy, Suspense, useState } from 'react'
 import { Segmented } from '@/components/Segmented'
 import { EASE_OUT } from '@/lib/motion'
-import type { Departure } from './departure'
+import { addDays, type Departure, formatDay, startOfDay } from './departure'
+
+const DatePicker = lazy(() => import('./DatePicker'))
 
 export function DepartureField({
   value,
@@ -45,7 +44,7 @@ export function DepartureField({
               <Popover.Root open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <Popover.Trigger className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-line bg-ink-900 px-3 text-left text-[13.5px] text-fg hover:border-line-strong">
                   <CalendarDays className="size-4 text-fg-faint" aria-hidden />
-                  {format(value.date, 'EEE, MMM d')}
+                  {formatDay(value.date)}
                 </Popover.Trigger>
                 <Popover.Portal>
                   <Popover.Content
@@ -53,17 +52,16 @@ export function DepartureField({
                     sideOffset={6}
                     className="z-50 rounded-xl border border-line-strong bg-ink-800 p-3 shadow-[0_16px_48px_rgb(0_0_0/0.55)] data-[state=open]:animate-in data-[state=open]:fade-in-0"
                   >
-                    <DayPicker
-                      mode="single"
-                      required
-                      selected={value.date}
-                      onSelect={(date) => {
-                        if (date) onChange({ ...value, date })
-                        setCalendarOpen(false)
-                      }}
-                      disabled={[{ before: today }, { after: addDays(today, 6) }]}
-                      showOutsideDays={false}
-                    />
+                    <Suspense fallback={<div className="h-[290px] w-[260px] skeleton rounded-lg" />}>
+                      <DatePicker
+                        selected={value.date}
+                        onSelect={(date) => {
+                          onChange({ ...value, date })
+                          setCalendarOpen(false)
+                        }}
+                        disabled={[{ before: today }, { after: addDays(today, 6) }]}
+                      />
+                    </Suspense>
                   </Popover.Content>
                 </Popover.Portal>
               </Popover.Root>

@@ -1,7 +1,7 @@
 import { Eye, EyeOff, Pause, Play } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Slider } from 'radix-ui'
-import { useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { Segmented } from '@/components/Segmented'
 import { CHANNELS } from '@/features/heatmap/decode'
 import { RAMPS } from '@/features/heatmap/colormaps'
@@ -16,6 +16,7 @@ import { type HeatVariable, useTrip } from '@/store/trip'
 import { Legend } from './Legend'
 
 const PLAY_HOURS_PER_SECOND = 4
+const LAYER_OPTIONS = CHANNELS.map((c) => ({ value: c, label: RAMPS[c].label }))
 
 export function TimelineDock({ view }: { view: TripView | undefined }) {
   const heat = useHeatmapData(view?.plan)
@@ -147,7 +148,7 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
                 className="block size-4 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_0_4px_rgb(245_165_36/0.25)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-amber"
               />
             </Slider.Root>
-            <Ticks start={start} tz={tz} />
+            <Ticks startIso={startIso} tz={tz} />
           </div>
 
           <div className="flex items-center gap-2">
@@ -156,7 +157,7 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
               size="sm"
               value={variable}
               onChange={setVariable}
-              options={CHANNELS.map((c) => ({ value: c, label: RAMPS[c].label }))}
+              options={LAYER_OPTIONS}
             />
             <button
               type="button"
@@ -199,8 +200,10 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
   )
 }
 
-function Ticks({ start, tz }: { start: Date | null; tz: string }) {
-  if (!start) return null
+/** Hour marks under the slider. Memoised: the dock re-renders every frame while playing. */
+const Ticks = memo(function Ticks({ startIso, tz }: { startIso: string | undefined; tz: string }) {
+  if (!startIso) return null
+  const start = new Date(startIso)
   const marks = [0, 12, 24, 36, 48]
   return (
     <div className="pointer-events-none relative mt-0.5 hidden h-3.5 font-mono text-[10px] text-fg-faint sm:block">
@@ -221,4 +224,4 @@ function Ticks({ start, tz }: { start: Date | null; tz: string }) {
       })}
     </div>
   )
-}
+})

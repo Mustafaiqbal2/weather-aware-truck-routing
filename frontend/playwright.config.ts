@@ -7,8 +7,10 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  expect: { timeout: 15_000 },
+  expect: { timeout: 25_000 },
   fullyParallel: true,
+  // Each browser renders WebGL in software (no GPU), which is CPU-heavy: keep parallelism modest.
+  workers: process.env.CI ? 2 : 3,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
