@@ -80,14 +80,23 @@ class RouteInputSerializer(serializers.Serializer[Any]):
     checkpoints = CheckpointInputSerializer(many=True, min_length=2, max_length=600)
 
 
+SCENARIOS = ["live", "storm"]
+
+
 class AssessRequestSerializer(serializers.Serializer[Any]):
     load_lb = serializers.FloatField(min_value=0, max_value=MAX_LOAD_LB)
     routes = RouteInputSerializer(many=True, min_length=1, max_length=3)
+    scenario = serializers.ChoiceField(
+        choices=SCENARIOS,
+        default="live",
+        help_text='"storm" lays a clearly simulated storm over the real forecast (demo).',
+    )
 
 
 class HeatmapRequestSerializer(serializers.Serializer[Any]):
     start = serializers.DateTimeField()
     load_lb = serializers.FloatField(min_value=0, max_value=MAX_LOAD_LB)
+    scenario = serializers.ChoiceField(choices=SCENARIOS, default="live")
     routes = serializers.ListField(
         child=serializers.ListField(
             child=serializers.ListField(child=serializers.FloatField(), min_length=2, max_length=2),
@@ -205,9 +214,38 @@ class RecommendationSerializer(serializers.Serializer[Any]):
     warnings = serializers.ListField(child=serializers.CharField())
 
 
+class LevelMilesSerializer(serializers.Serializer[Any]):
+    low = serializers.FloatField()
+    moderate = serializers.FloatField()
+    high = serializers.FloatField()
+    severe = serializers.FloatField()
+    no_travel = serializers.FloatField()
+
+
+class DepartureOptionSerializer(serializers.Serializer[Any]):
+    offset_h = serializers.IntegerField()
+    departure = serializers.DateTimeField()
+    route_id = serializers.CharField()
+    complete = serializers.BooleanField(
+        help_text="False when part of the trip is beyond the forecast"
+    )
+    miles = LevelMilesSerializer()
+    average_risk = serializers.FloatField()
+    max_level = serializers.ChoiceField(choices=LEVEL_KEYS, allow_null=True)
+    arrival = serializers.DateTimeField()
+
+
+class DeparturesSerializer(serializers.Serializer[Any]):
+    options = DepartureOptionSerializer(many=True)
+    best_offset_h = serializers.IntegerField(allow_null=True)
+    reason = serializers.CharField(allow_null=True)
+
+
 class AssessResponseSerializer(serializers.Serializer[Any]):
     routes = AssessedRouteSerializer(many=True)
     recommendation = RecommendationSerializer()
+    departures = DeparturesSerializer()
+    scenario = serializers.ChoiceField(choices=SCENARIOS)
 
 
 class HeatmapGridSerializer(serializers.Serializer[Any]):
@@ -244,6 +282,7 @@ class HeatmapResponseSerializer(serializers.Serializer[Any]):
     scales = HeatmapScalesSerializer()
     nodata = serializers.IntegerField()
     frames = HeatmapFramesSerializer()
+    scenario = serializers.ChoiceField(choices=SCENARIOS)
 
 
 class GeocodeResultSerializer(serializers.Serializer[Any]):

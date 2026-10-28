@@ -130,10 +130,20 @@ export interface components {
             /** Format: double */
             load_lb: number;
             routes: components["schemas"]["RouteInputRequest"][];
+            /**
+             * @description "storm" lays a clearly simulated storm over the real forecast (demo).
+             *
+             *     * `live` - live
+             *     * `storm` - storm
+             * @default live
+             */
+            scenario: components["schemas"]["ScenarioEnum"];
         };
         AssessResponse: {
             routes: components["schemas"]["AssessedRoute"][];
             recommendation: components["schemas"]["Recommendation"];
+            departures: components["schemas"]["Departures"];
+            scenario: components["schemas"]["ScenarioEnum"];
         };
         AssessedCheckpoint: {
             index: number;
@@ -182,6 +192,25 @@ export interface components {
          * @enum {string}
          */
         CriterionEnum: "no_travel" | "severe" | "high" | "average" | "duration" | "tie" | "only";
+        DepartureOption: {
+            offset_h: number;
+            /** Format: date-time */
+            departure: string;
+            route_id: string;
+            /** @description False when part of the trip is beyond the forecast */
+            complete: boolean;
+            miles: components["schemas"]["LevelMiles"];
+            /** Format: double */
+            average_risk: number;
+            max_level: (components["schemas"]["RiskLevelEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: date-time */
+            arrival: string;
+        };
+        Departures: {
+            options: components["schemas"]["DepartureOption"][];
+            best_offset_h: number | null;
+            reason: string | null;
+        };
         /**
          * @description * `wind` - wind
          *     * `rain` - rain
@@ -235,6 +264,8 @@ export interface components {
             start: string;
             /** Format: double */
             load_lb: number;
+            /** @default live */
+            scenario: components["schemas"]["ScenarioEnum"];
             /** @description Route lines as [[lon, lat], ...] */
             routes: number[][][];
         };
@@ -246,6 +277,7 @@ export interface components {
             scales: components["schemas"]["HeatmapScales"];
             nodata: number;
             frames: components["schemas"]["HeatmapFrames"];
+            scenario: components["schemas"]["ScenarioEnum"];
         };
         HeatmapScales: {
             /** Format: double */
@@ -271,6 +303,18 @@ export interface components {
          * @enum {integer}
          */
         IntervalMiEnum: 10 | 25 | 50;
+        LevelMiles: {
+            /** Format: double */
+            low: number;
+            /** Format: double */
+            moderate: number;
+            /** Format: double */
+            high: number;
+            /** Format: double */
+            severe: number;
+            /** Format: double */
+            no_travel: number;
+        };
         Miles: {
             /** Format: double */
             low: number;
@@ -377,6 +421,12 @@ export interface components {
             routes: components["schemas"]["RouteOut"][];
             warnings: string[];
         };
+        /**
+         * @description * `live` - live
+         *     * `storm` - storm
+         * @enum {string}
+         */
+        ScenarioEnum: "live" | "storm";
         /**
          * @description * `tomtom` - tomtom
          *     * `tomtom_alternative` - tomtom_alternative

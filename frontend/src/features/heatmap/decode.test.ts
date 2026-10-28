@@ -12,6 +12,7 @@ const response: HeatmapResponse = {
   grid: { west: -105, south: 39, east: -100, north: 41, cols: 3, rows: 2, cells: [1, 4], edge: [0, 0.9] },
   scales: { risk: 4 / 250, wind: 0.5, rain: 0.01, snow: 0.02 },
   nodata: 255,
+  scenario: 'live',
   frames: {
     risk: toB64([10, 20, 30, 40]), // hour-major: [h0c1, h0c4, h1c1, h1c4]
     wind: toB64([50, 60, 70, 80]),

@@ -255,6 +255,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RouteInputRequest'
+        scenario:
+          allOf:
+          - $ref: '#/components/schemas/ScenarioEnum'
+          default: live
+          description: |-
+            "storm" lays a clearly simulated storm over the real forecast (demo).
+
+            * `live` - live
+            * `storm` - storm
       required:
       - load_lb
       - routes
@@ -267,9 +276,15 @@ components:
             $ref: '#/components/schemas/AssessedRoute'
         recommendation:
           $ref: '#/components/schemas/Recommendation'
+        departures:
+          $ref: '#/components/schemas/Departures'
+        scenario:
+          $ref: '#/components/schemas/ScenarioEnum'
       required:
+      - departures
       - recommendation
       - routes
+      - scenario
     AssessedCheckpoint:
       type: object
       properties:
@@ -385,6 +400,58 @@ components:
         * `duration` - duration
         * `tie` - tie
         * `only` - only
+    DepartureOption:
+      type: object
+      properties:
+        offset_h:
+          type: integer
+        departure:
+          type: string
+          format: date-time
+        route_id:
+          type: string
+        complete:
+          type: boolean
+          description: False when part of the trip is beyond the forecast
+        miles:
+          $ref: '#/components/schemas/LevelMiles'
+        average_risk:
+          type: number
+          format: double
+        max_level:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RiskLevelEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        arrival:
+          type: string
+          format: date-time
+      required:
+      - arrival
+      - average_risk
+      - complete
+      - departure
+      - max_level
+      - miles
+      - offset_h
+      - route_id
+    Departures:
+      type: object
+      properties:
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepartureOption'
+        best_offset_h:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+      required:
+      - best_offset_h
+      - options
+      - reason
     DriversEnum:
       enum:
       - wind
@@ -507,6 +574,10 @@ components:
           format: double
           maximum: 120000
           minimum: 0
+        scenario:
+          allOf:
+          - $ref: '#/components/schemas/ScenarioEnum'
+          default: live
         routes:
           type: array
           items:
@@ -543,12 +614,15 @@ components:
           type: integer
         frames:
           $ref: '#/components/schemas/HeatmapFrames'
+        scenario:
+          $ref: '#/components/schemas/ScenarioEnum'
       required:
       - frames
       - grid
       - hours
       - nodata
       - scales
+      - scenario
       - start
     HeatmapScales:
       type: object
@@ -590,6 +664,30 @@ components:
         * `10` - 10
         * `25` - 25
         * `50` - 50
+    LevelMiles:
+      type: object
+      properties:
+        low:
+          type: number
+          format: double
+        moderate:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        severe:
+          type: number
+          format: double
+        no_travel:
+          type: number
+          format: double
+      required:
+      - high
+      - low
+      - moderate
+      - no_travel
+      - severe
     Miles:
       type: object
       properties:
@@ -876,6 +974,14 @@ components:
       - origin
       - routes
       - warnings
+    ScenarioEnum:
+      enum:
+      - live
+      - storm
+      type: string
+      description: |-
+        * `live` - live
+        * `storm` - storm
     SourceEnum:
       enum:
       - tomtom

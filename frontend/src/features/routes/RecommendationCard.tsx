@@ -60,11 +60,16 @@ export function RecommendationCard({
             )}
             <p className="flex items-center gap-1.5 text-[11px] font-medium tracking-[0.08em] text-amber uppercase">
               <Sparkles className="size-3.5" aria-hidden /> Recommended
+              {view.scenario === 'storm' && (
+                <span className="ml-auto rounded-full border border-risk-no-travel/50 bg-risk-no-travel/15 px-2 py-0.5 text-[10px] tracking-wide text-fg">
+                  Simulated storm
+                </span>
+              )}
             </p>
-            <h2 className="mt-1.5 flex items-baseline gap-2 text-[19px] leading-tight font-semibold tracking-tight text-fg">
+            <h3 className="mt-1.5 flex items-baseline gap-2 text-[19px] leading-tight font-semibold tracking-tight text-fg">
               <span className="font-mono text-amber">{route.id}</span>
               <span>{route.label}</span>
-            </h2>
+            </h3>
             <p className="mt-2 text-[13px] leading-snug text-fg-muted">{rec.reason}</p>
             {rec.tradeoff && <p className="mt-1.5 text-[13px] leading-snug text-fg-muted">{rec.tradeoff}</p>}
 

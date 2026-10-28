@@ -24,7 +24,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 os.environ["FAKE_ROUTING"] = "1"
 os.environ["DJANGO_DEBUG"] = "1"
 
-import django  # noqa: E402
+import django
 
 django.setup()
 

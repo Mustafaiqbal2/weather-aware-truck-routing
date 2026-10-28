@@ -11,6 +11,7 @@ import { useTrip } from '@/store/trip'
 import { CheckpointPopup } from './CheckpointPopup'
 import { type CheckpointFeatureProps, CheckpointLayers, RouteLayers } from './RouteLayers'
 import { RouteLabels } from './RouteLabels'
+import { TruckLayer } from './TruckLayer'
 import { CHECKPOINT_LAYER, ROUTE_IDS, sceneRoute } from './scene'
 import { useRouteScene } from './useRouteScene'
 
@@ -120,6 +121,12 @@ export function MapView({ view }: { view: TripView | undefined }) {
                   ? { routeId: selectedCheckpoint.routeId, index: selectedCheckpoint.index }
                   : null
               }
+            />
+          )}
+          {view?.recommendation && (
+            <TruckLayer
+              routes={view.routes}
+              startMs={Math.floor(Date.parse(view.plan.departure) / 3_600_000) * 3_600_000}
             />
           )}
           {view && <RouteLabels routes={view.routes} />}

@@ -5,7 +5,7 @@ import { Segmented } from '@/components/Segmented'
 import type { PlaceInput, RoutesRequest } from '@/lib/api/client'
 import { cn } from '@/lib/cn'
 import { useTrip } from '@/store/trip'
-import { type Departure, departureValue } from './departure'
+import { type Departure, departureFromValue, departureValue } from './departure'
 import { DepartureField } from './DepartureField'
 import { EXAMPLES } from './examples'
 import { PlaceField } from './PlaceField'
@@ -60,6 +60,19 @@ export function TripForm({ busy }: { busy: boolean }) {
     setLoad(String(ex.load))
     const r = request(ex.origin, ex.destination, ex.load)
     if (r) submit(r)
+  }
+
+  // Follow trips started elsewhere (a shared link, or "Plan for" in the departure chart).
+  const [synced, setSynced] = useState(current)
+  if (current !== synced) {
+    setSynced(current)
+    if (current && JSON.stringify(current) !== JSON.stringify(request())) {
+      setOrigin(current.origin)
+      setDestination(current.destination)
+      setLoad(String(current.load_lb))
+      setSampleInterval(String(current.interval_mi ?? 25) as '10' | '25' | '50')
+      setDeparture(departureFromValue(current.departure, departure))
+    }
   }
 
   const dirty = current !== null && JSON.stringify(current) !== JSON.stringify(request())

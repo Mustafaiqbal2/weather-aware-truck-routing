@@ -116,8 +116,12 @@ CORS_ALLOWED_ORIGINS = [
 TOMTOM_API_KEY = os.environ.get("TOMTOM_API_KEY", "")
 # Development/E2E only: synthetic routes instead of TomTom. Ignored unless DEBUG is on.
 FAKE_ROUTING = env_bool("FAKE_ROUTING")
-OPEN_METEO_BASE_URL = os.environ.get("OPEN_METEO_BASE_URL", "https://api.open-meteo.com")
 OPEN_METEO_API_KEY = os.environ.get("OPEN_METEO_API_KEY", "")
+# Paid plans use a separate host; the free tier needs no key.
+OPEN_METEO_BASE_URL = os.environ.get(
+    "OPEN_METEO_BASE_URL",
+    "https://customer-api.open-meteo.com" if OPEN_METEO_API_KEY else "https://api.open-meteo.com",
+)
 
 LOGGING = {
     "version": 1,

@@ -112,7 +112,7 @@ def assess(request: Request) -> Response:
     body = s.AssessRequestSerializer(data=request.data)
     body.is_valid(raise_exception=True)
     v = body.validated_data
-    return Response(services.assess_routes(v["routes"], v["load_lb"]))
+    return Response(services.assess_routes(v["routes"], v["load_lb"], v["scenario"]))
 
 
 @extend_schema(
@@ -125,7 +125,7 @@ def heatmap(request: Request) -> Response:
     body.is_valid(raise_exception=True)
     v = body.validated_data
     lines = [[(lat, lon) for lon, lat in line] for line in v["routes"]]
-    return Response(services.heatmap(lines, v["start"], v["load_lb"]))
+    return Response(services.heatmap(lines, v["start"], v["load_lb"], v["scenario"]))
 
 
 __all__ = ["ProviderError", "assess", "geocode", "health", "heatmap", "routes", "rules"]

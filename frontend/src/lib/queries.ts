@@ -4,6 +4,7 @@ import { useTrip } from '@/store/trip'
 import {
   ApiError,
   api,
+  type AssessResponse,
   type AssessedRoute,
   type Recommendation,
   type Route,
@@ -27,12 +28,14 @@ export function usePlan() {
 
 export function useAssessment(plan: RoutesResponse | undefined) {
   const requestId = useTrip((s) => s.requestId)
+  const scenario = useTrip((s) => s.scenario)
   return useQuery({
-    queryKey: ['assess', requestId],
+    queryKey: ['assess', requestId, scenario],
     queryFn: ({ signal }) =>
       api.assess(
         {
           load_lb: plan!.load_lb,
+          scenario,
           routes: plan!.routes.map((r) => ({
             id: r.id as 'A' | 'B' | 'C',
             label: r.label,
@@ -58,13 +61,15 @@ export function useAssessment(plan: RoutesResponse | undefined) {
 
 export function useHeatmapData(plan: RoutesResponse | undefined) {
   const requestId = useTrip((s) => s.requestId)
+  const scenario = useTrip((s) => s.scenario)
   return useQuery({
-    queryKey: ['heatmap', requestId],
+    queryKey: ['heatmap', requestId, scenario],
     queryFn: ({ signal }) =>
       api.heatmap(
         {
           start: plan!.departure,
           load_lb: plan!.load_lb,
+          scenario,
           routes: plan!.routes.map((r) => decimate(r.geometry as LngLat[], 400)),
         },
         signal,
@@ -99,6 +104,8 @@ export interface TripView {
   plan: RoutesResponse
   routes: RouteView[]
   recommendation: Recommendation | undefined
+  departures: AssessResponse['departures'] | undefined
+  scenario: AssessResponse['scenario'] | undefined
 }
 
 /** Plan and assessment merged into one view model for the UI. */
@@ -122,7 +129,13 @@ export function useTripView(): {
         recommended: rec?.route_id === route.id,
       }
     })
-    return { plan: plan.data, routes, recommendation: rec }
+    return {
+      plan: plan.data,
+      routes,
+      recommendation: rec,
+      departures: assessed?.departures,
+      scenario: assessed?.scenario,
+    }
   }, [plan.data, assessment.data])
   return { view, plan, assessment }
 }

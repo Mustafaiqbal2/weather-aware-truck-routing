@@ -57,3 +57,19 @@ export function clockParts(iso: string | Date, timeZone: string) {
 export function hoursBetween(a: string | Date, b: string | Date): number {
   return (new Date(b).getTime() - new Date(a).getTime()) / 3_600_000
 }
+
+/** Wall-clock "YYYY-MM-DDTHH:MM" in a time zone, the form the API takes for departures. */
+export function toLocalInput(iso: string | Date, timeZone: string): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '00'
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}

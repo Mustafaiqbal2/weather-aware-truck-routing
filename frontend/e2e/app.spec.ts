@@ -6,13 +6,16 @@ type Override = (route: Route) => Promise<void>
 async function mockApi(page: Page, overrides: Record<string, Override> = {}) {
   const errors: string[] = []
   page.on('pageerror', (e) => errors.push(e.message))
-  await page.route((url) => url.pathname.startsWith('/api/'), async (route) => {
-    const name = new URL(route.request().url()).pathname.replace(/^\/api\//, '')
-    const override = overrides[name]
-    if (override) return override(route)
-    if (name === 'health') return route.fulfill({ json: { status: 'ok' } })
-    return route.fulfill({ path: `e2e/fixtures/${name}.json`, contentType: 'application/json' })
-  })
+  await page.route(
+    (url) => url.pathname.startsWith('/api/'),
+    async (route) => {
+      const name = new URL(route.request().url()).pathname.replace(/^\/api\//, '')
+      const override = overrides[name]
+      if (override) return override(route)
+      if (name === 'health') return route.fulfill({ json: { status: 'ok' } })
+      return route.fulfill({ path: `e2e/fixtures/${name}.json`, contentType: 'application/json' })
+    },
+  )
   return errors
 }
 
@@ -27,7 +30,7 @@ test('recommends the route that avoids severe weather and explains why', async (
   await planExample(page)
 
   const card = page.getByRole('region', { name: 'Recommendation' })
-  await expect(page.getByRole('heading', { level: 2 })).toContainText('C')
+  await expect(card.getByRole('heading', { level: 3 })).toContainText('C')
   await expect(page.getByText(/Fewest Severe miles: 25 mi, against 225 mi/)).toBeVisible()
   await expect(page.getByText(/avoids 225 mi of Severe conditions on the fastest route/)).toBeVisible()
   await expect(card).toBeVisible()
@@ -49,7 +52,10 @@ test('shows checkpoint details for a selected route', async ({ page }) => {
   await mockApi(page)
   await planExample(page)
 
-  await page.getByRole('list', { name: 'Route options' }).getByRole('button', { name: /Synthetic I-1/ }).click()
+  await page
+    .getByRole('list', { name: 'Route options' })
+    .getByRole('button', { name: /Synthetic I-1/ })
+    .click()
   const list = page.getByRole('region', { name: 'Route A checkpoints' })
   await expect(list).toBeVisible()
 
@@ -91,10 +97,64 @@ test('explains provider errors', async ({ page }) => {
     routes: (route) =>
       route.fulfill({
         status: 503,
-        json: { error: { code: 'not_configured', message: "Routing isn't configured on this server yet.", details: null } },
+        json: {
+          error: {
+            code: 'not_configured',
+            message: "Routing isn't configured on this server yet.",
+            details: null,
+          },
+        },
       }),
   })
   await page.goto('/')
   await page.getByRole('button', { name: 'Denver → Chicago' }).click()
   await expect(page.getByRole('alert')).toContainText("Routing isn't configured")
+})
+
+test('suggests the best time to leave and can re-plan for it', async ({ page }) => {
+  await mockApi(page)
+  await planExample(page)
+  const window = page.getByRole('region', { name: 'Best time to leave' })
+  await expect(window).toBeVisible()
+  await expect(window.getByRole('button', { name: /^Leave / })).toHaveCount(13)
+
+  const replan = window.getByRole('button', { name: /^Plan for / })
+  if (await replan.count()) {
+    let routesBody: { departure?: string } = {}
+    await page.route(
+      (url) => url.pathname === '/api/routes',
+      async (route) => {
+        routesBody = route.request().postDataJSON()
+        await route.fulfill({ path: 'e2e/fixtures/routes.json', contentType: 'application/json' })
+      },
+    )
+    await replan.click()
+    await expect.poll(() => routesBody.departure).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    await expect(page.getByRole('radio', { name: 'Schedule' })).toHaveAttribute('aria-checked', 'true')
+  }
+})
+
+test('storm drill is clearly labelled as simulated', async ({ page }) => {
+  let scenario: string | undefined
+  await mockApi(page, {
+    assess: async (route) => {
+      scenario = route.request().postDataJSON().scenario
+      await route.fulfill({ path: 'e2e/fixtures/assess.json', contentType: 'application/json' })
+    },
+  })
+  await planExample(page)
+  await page.getByRole('switch', { name: /Storm drill/ }).click()
+  await expect.poll(() => scenario).toBe('storm')
+  await expect(page.getByRole('status').filter({ hasText: 'Simulated storm' })).toBeVisible()
+  await expect(page).toHaveURL(/storm=1/)
+})
+
+test('opens a shared link straight into the planned trip', async ({ page }) => {
+  await mockApi(page)
+  await page.goto(
+    '/?o=39.73920%2C-104.99030%2CDenver%2C+CO&d=41.87810%2C-87.62980%2CChicago%2C+IL&dep=now&load=35000&every=10',
+  )
+  await expect(page.getByText('Recommended', { exact: true })).toBeVisible()
+  await expect(page.locator('#load')).toHaveValue('35,000')
+  await expect(page.getByRole('radio', { name: '10 mi' })).toHaveAttribute('aria-checked', 'true')
 })

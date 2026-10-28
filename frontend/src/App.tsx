@@ -1,11 +1,14 @@
 import { Sidebar } from '@/features/layout/Sidebar'
 import { useWarmup } from '@/features/layout/useWarmup'
 import { MapView } from '@/features/map/MapView'
+import { SimulatedBanner } from '@/features/routes/StormDrill'
 import { TimelineDock } from '@/features/timeline/TimelineDock'
 import { useTripView } from '@/lib/queries'
+import { useUrlState } from '@/lib/urlState'
 
 export default function App() {
   useWarmup()
+  useUrlState()
   const trip = useTripView()
 
   return (
@@ -13,6 +16,7 @@ export default function App() {
       <Sidebar trip={trip} />
       <main className="relative order-first h-[55vh] shrink-0 overflow-hidden bg-ink-950 md:order-none md:h-full md:flex-1">
         <MapView view={trip.view} />
+        <SimulatedBanner />
         <TimelineDock view={trip.view} />
       </main>
     </div>

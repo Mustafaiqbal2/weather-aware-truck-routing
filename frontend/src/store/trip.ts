@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { RouteId, RoutesRequest } from '@/lib/api/client'
 
 export type HeatVariable = 'risk' | 'wind' | 'rain' | 'snow'
+/** "storm" overlays a clearly labelled simulated storm on the real forecast. */
+export type Scenario = 'live' | 'storm'
 
 export interface SelectedCheckpoint {
   routeId: RouteId
@@ -19,6 +21,7 @@ interface TripState {
   selectedCheckpoint: SelectedCheckpoint | null
   heatVariable: HeatVariable
   heatVisible: boolean
+  scenario: Scenario
 
   submit: (request: RoutesRequest) => void
   selectRoute: (id: RouteId | null) => void
@@ -26,6 +29,7 @@ interface TripState {
   selectCheckpoint: (cp: SelectedCheckpoint | null) => void
   setHeatVariable: (v: HeatVariable) => void
   toggleHeat: () => void
+  setScenario: (scenario: Scenario) => void
 }
 
 export const useTrip = create<TripState>()((set) => ({
@@ -36,6 +40,7 @@ export const useTrip = create<TripState>()((set) => ({
   selectedCheckpoint: null,
   heatVariable: 'risk',
   heatVisible: true,
+  scenario: 'live',
 
   submit: (request) =>
     set((s) => ({
@@ -52,4 +57,5 @@ export const useTrip = create<TripState>()((set) => ({
     set(cp ? { selectedCheckpoint: cp, selectedRouteId: cp.routeId } : { selectedCheckpoint: null }),
   setHeatVariable: (heatVariable) => set({ heatVariable, heatVisible: true }),
   toggleHeat: () => set((s) => ({ heatVisible: !s.heatVisible })),
+  setScenario: (scenario) => set({ scenario, selectedCheckpoint: null }),
 }))

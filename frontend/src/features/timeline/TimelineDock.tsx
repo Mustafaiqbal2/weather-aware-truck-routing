@@ -9,6 +9,8 @@ import { cn } from '@/lib/cn'
 import { clockParts, hoursBetween } from '@/lib/format'
 import { EASE_OUT, gsap, prefersReducedMotion } from '@/lib/motion'
 import { useHeatmapData, type TripView } from '@/lib/queries'
+import { LEVEL_COLOR, LEVEL_LABEL } from '@/lib/risk'
+import { buildTracks, truckAt } from '@/lib/trucks'
 import { TIMELINE_HOURS, useTimeline } from '@/store/timeline'
 import { type HeatVariable, useTrip } from '@/store/trip'
 import { Legend } from './Legend'
@@ -66,10 +68,14 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
     }
   }, [startIso, departure, arrival])
 
+  const tracks = useMemo(() => (view ? buildTracks(view.routes) : []), [view])
+
   if (!view) return null
   const start = startIso ? new Date(startIso) : null
   const current = start ? new Date(start.getTime() + hour * 3_600_000) : null
   const label = current ? clockParts(current, tz) : null
+  const track = tracks.find((tr) => tr.id === route?.id)
+  const truck = track && current ? truckAt(track, current.getTime()) : null
   const loading = heat.isPending
   const failed = heat.isError
 
@@ -165,7 +171,22 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
         </div>
         <div className="mt-2.5 hidden items-center justify-between gap-4 md:flex">
           <Legend variable={variable} />
-          <p className="hidden text-right text-[11px] text-fg-faint sm:block">
+          {truck && route && view.recommendation && (
+            <p className="flex items-center gap-1.5 font-mono text-[11px] text-fg-muted">
+              <span
+                className="size-2 rounded-full ring-2 ring-ink-950"
+                style={{ background: truck.level ? LEVEL_COLOR[truck.level] : LEVEL_COLOR.unknown }}
+                aria-hidden
+              />
+              Truck {route.id}{' '}
+              {truck.state === 'waiting'
+                ? 'not yet departed'
+                : truck.state === 'arrived'
+                  ? 'arrived'
+                  : `at mile ${Math.round(truck.mile)} · ${truck.level ? LEVEL_LABEL[truck.level] : 'no data'}`}
+            </p>
+          )}
+          <p className="hidden text-right text-[11px] text-fg-faint lg:block">
             {failed
               ? `Heatmap unavailable: ${heat.error.message}`
               : loading

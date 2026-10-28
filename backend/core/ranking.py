@@ -144,6 +144,8 @@ def _tradeoff(best: RouteScore, fastest: RouteScore) -> str | None:
 
 
 def _mi(miles: float) -> str:
+    if round(miles, MILE_PRECISION) == 0:
+        return "0 mi"
     return f"{miles:,.0f} mi" if miles >= 10 else f"{miles:,.1f} mi"
 
 
@@ -153,3 +155,39 @@ def _duration(seconds: float) -> str:
         return f"{minutes} min"
     hours, rem = divmod(minutes, 60)
     return f"{hours} h {rem} min" if rem else f"{hours} h"
+
+
+@dataclass(frozen=True)
+class DepartureOption:
+    """The best route if the truck left ``offset_h`` hours after the planned departure."""
+
+    offset_h: int
+    best: RouteScore
+    complete: bool  # False when some checkpoints fall beyond the forecast
+
+
+def best_departure(options: Sequence[DepartureOption]) -> DepartureOption | None:
+    """Safest departure, by the same order as routes, then the earliest arrival.
+
+    Options with checkpoints beyond the forecast are skipped: missing weather must not
+    make a later departure look safer than it is.
+    """
+    usable = [o for o in options if o.complete]
+    if not usable:
+        return None
+    return min(usable, key=lambda o: (*o.best.key()[:4], o.offset_h * 3600 + o.best.duration_s))
+
+
+def explain_departure(first: DepartureOption, best: DepartureOption) -> str:
+    if best.offset_h == first.offset_h:
+        return "Leaving as planned is already the safest choice in the next 24 hours."
+    when = f"Leaving {best.offset_h} hours later"
+    names = {"no_travel": "No Travel", "severe": "Severe", "high": "High"}
+    for criterion, va, vb in zip(CRITERIA[:4], best.best.key(), first.best.key(), strict=False):
+        if va == vb:
+            continue
+        if criterion in names:
+            to = "none" if round(va, MILE_PRECISION) == 0 else _mi(va)
+            return f"{when} cuts {names[criterion]} miles from {_mi(vb)} to {to}."
+        return f"{when} lowers the average risk from {vb:.2f} to {va:.2f}."
+    return f"{when} is as safe as leaving as planned."

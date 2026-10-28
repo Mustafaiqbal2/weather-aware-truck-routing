@@ -1,13 +1,16 @@
-import { CloudSun, Route as RouteIcon, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { CloudSun, Link2, Route as RouteIcon, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { motion } from 'motion/react'
+import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { ApiError } from '@/lib/api/client'
 import { EASE_OUT } from '@/lib/motion'
 import type { useTripView } from '@/lib/queries'
 import { useTrip } from '@/store/trip'
+import { DepartureWindow } from './DepartureWindow'
 import { RecommendationCard } from './RecommendationCard'
 import { RouteCards } from './RouteCards'
 import { RouteDetail } from './RouteDetail'
+import { StormDrill } from './StormDrill'
 
 type TripQueries = ReturnType<typeof useTripView>
 
@@ -34,11 +37,31 @@ export function Results({ trip, scroller }: { trip: TripQueries; scroller: HTMLE
           {w}
         </p>
       ))}
+      <div className="flex items-center justify-between">
+        <h2 className="text-[11px] font-medium tracking-[0.08em] text-fg-faint uppercase">
+          {view.routes.length} routes · {view.plan.origin.label.split(',')[0]} to{' '}
+          {view.plan.destination.label.split(',')[0]}
+        </h2>
+        <button
+          type="button"
+          onClick={() =>
+            navigator.clipboard
+              .writeText(window.location.href)
+              .then(() => toast.success('Link copied. It opens this exact trip.'))
+              .catch(() => toast.error("Couldn't copy the link."))
+          }
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] text-fg-muted transition-colors hover:bg-ink-750 hover:text-fg"
+        >
+          <Link2 className="size-3.5" aria-hidden /> Copy link
+        </button>
+      </div>
+      <StormDrill />
       <RecommendationCard
         view={view}
         error={assessment.error instanceof ApiError ? assessment.error : null}
         onRetry={() => assessment.refetch()}
       />
+      <DepartureWindow view={view} />
       <RouteCards view={view} />
       <RouteDetail route={focus} scroller={scroller} />
       <p className="pt-2 text-[11px] leading-relaxed text-fg-faint">

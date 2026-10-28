@@ -22,10 +22,17 @@ from timezonefinder import TimezoneFinder
 from core.eta import travel_times_at
 from core.geo import cumulative_distances_m, sample_checkpoints
 from core.heatmap_grid import build_grid
-from core.mileage import attribute_miles
-from core.ranking import RouteScore, recommend
-from core.risk import RiskLevel, assess_conditions, risk_index
+from core.mileage import MileBreakdown, attribute_miles
+from core.ranking import (
+    DepartureOption,
+    RouteScore,
+    best_departure,
+    explain_departure,
+    recommend,
+)
+from core.risk import Assessment, RiskLevel, assess_conditions, risk_index
 from core.route_select import Candidate, detour_via_points, pick_distinct, simplify
+from core.storm import StormFrame, overlay
 from core.units import (
     LEGAL_GROSS_LIMIT_LB,
     cm_to_in,
@@ -36,7 +43,7 @@ from core.units import (
     miles_to_meters,
     mm_to_in,
 )
-from core.weather_align import weather_at
+from core.weather_align import HourlySeries, WeatherAt, weather_at
 from providers import openmeteo, routing, tomtom
 from providers.http import UpstreamError
 
@@ -267,94 +274,129 @@ def _route_payload(
 
 # --- Assessment ---------------------------------------------------------------------
 
+DEPARTURE_WINDOW_H = 24
+DEPARTURE_STEP_H = 2
 
-def assess_routes(routes: Sequence[dict[str, Any]], load_lb: float) -> dict[str, Any]:
-    """Weather and risk at every checkpoint, miles per level, and the recommendation."""
-    checkpoints = [cp for r in routes for cp in r["checkpoints"]]
-    etas = [cp["eta"] for cp in checkpoints]
+
+def _weather(
+    points: Sequence[Coord], start: datetime, end: datetime, storm: StormFrame | None
+) -> list[HourlySeries]:
     try:
-        series = openmeteo.fetch_hourly(
-            [(cp["lat"], cp["lon"]) for cp in checkpoints],
-            min(etas) - timedelta(hours=1),
-            max(etas) + timedelta(hours=1),
-        )
+        series = openmeteo.fetch_hourly(points, start, end)
     except UpstreamError as exc:
         raise upstream_error(exc) from exc
+    if storm is None:
+        return series
+    return [overlay(s, p, storm) for s, p in zip(series, points, strict=True)]
 
-    results: list[dict[str, Any]] = []
-    scores: list[RouteScore] = []
+
+def _storm_for(origin: Coord, destination: Coord, departure: datetime) -> StormFrame:
+    return StormFrame(origin, destination, openmeteo.hour_floor(departure).timestamp())
+
+
+@dataclass(frozen=True)
+class _Scored:
+    score: RouteScore
+    miles: MileBreakdown
+    rows: list[tuple[WeatherAt | None, Assessment | None]]
+
+
+def _score_route(
+    route: dict[str, Any], series: Sequence[HourlySeries], load_lb: float, shift_s: float
+) -> _Scored:
+    """Weather and risk at every checkpoint if the truck left ``shift_s`` seconds later."""
+    rows: list[tuple[WeatherAt | None, Assessment | None]] = []
+    for cp, s in zip(route["checkpoints"], series, strict=True):
+        w = weather_at(s, cp["eta"].timestamp() + shift_s)
+        a = assess_conditions(w.wind_mph, w.rain_in_hr, w.snow_in_hr, load_lb) if w else None
+        rows.append((w, a))
+    miles = attribute_miles(
+        [miles_to_meters(cp["mile"]) for cp in route["checkpoints"]],
+        [a.level if a else None for _, a in rows],
+        total_m=miles_to_meters(route["distance_mi"]),
+    )
+    score = RouteScore(
+        route_id=route["id"],
+        label=route["label"],
+        miles=miles.by_level,
+        unknown_miles=miles.unknown,
+        average_risk=miles.average_risk,
+        duration_s=route["duration_s"],
+    )
+    return _Scored(score, miles, rows)
+
+
+def _max_level(miles: dict[RiskLevel, float]) -> str | None:
+    present = [lvl for lvl, mi in miles.items() if mi > 0.05]
+    return max(present).key if present else None
+
+
+def _miles_payload(miles: MileBreakdown) -> dict[str, float]:
+    return {
+        **{lvl.key: round(mi, 2) for lvl, mi in miles.by_level.items()},
+        "unknown": round(miles.unknown, 2),
+    }
+
+
+def assess_routes(
+    routes: Sequence[dict[str, Any]], load_lb: float, scenario: str = "live"
+) -> dict[str, Any]:
+    """Weather and risk at every checkpoint, miles per level, the recommendation, and the
+    best departure time within the next 24 hours."""
+    checkpoints = [cp for r in routes for cp in r["checkpoints"]]
+    etas = [cp["eta"] for cp in checkpoints]
+    departure = min(etas)
+    first = routes[0]["checkpoints"]
+    storm = (
+        _storm_for(
+            (first[0]["lat"], first[0]["lon"]), (first[-1]["lat"], first[-1]["lon"]), departure
+        )
+        if scenario == "storm"
+        else None
+    )
+    # One fetch covers the trip and every later departure we compare against.
+    series = _weather(
+        [(cp["lat"], cp["lon"]) for cp in checkpoints],
+        departure - timedelta(hours=1),
+        max(etas) + timedelta(hours=DEPARTURE_WINDOW_H + 1),
+        storm,
+    )
+    per_route: list[list[HourlySeries]] = []
     offset = 0
     for route in routes:
-        assessed = []
-        levels: list[RiskLevel | None] = []
-        for cp in route["checkpoints"]:
-            weather = weather_at(series[offset], cp["eta"].timestamp())
-            offset += 1
-            if weather is None:
-                levels.append(None)
-                assessed.append({"index": cp["index"], "weather": None, "risk": None})
-                continue
-            a = assess_conditions(weather.wind_mph, weather.rain_in_hr, weather.snow_in_hr, load_lb)
-            levels.append(a.level)
-            assessed.append(
-                {
-                    "index": cp["index"],
-                    "weather": {
-                        "wind_mph": round(weather.wind_mph, 2),
-                        "gust_mph": None
-                        if weather.gust_mph is None
-                        else round(weather.gust_mph, 1),
-                        "rain_in_hr": round(weather.rain_in_hr, 4),
-                        "snow_in_hr": round(weather.snow_in_hr, 4),
-                        "weather_code": weather.weather_code,
-                        "valid_from": iso(datetime.fromtimestamp(weather.valid_from, UTC)),
-                        "valid_to": iso(datetime.fromtimestamp(weather.valid_to, UTC)),
-                    },
-                    "risk": {
-                        "level": a.level.key,
-                        "value": int(a.level),
-                        "wind": a.wind.key,
-                        "rain": a.rain.key,
-                        "snow": a.snow.key,
-                        "load": a.load.key if a.load is not None else None,
-                        "drivers": list(a.drivers),
-                        "summary": a.summary,
-                    },
-                }
-            )
+        n = len(route["checkpoints"])
+        per_route.append(series[offset : offset + n])
+        offset += n
 
-        miles = attribute_miles(
-            [miles_to_meters(cp["mile"]) for cp in route["checkpoints"]],
-            levels,
-            total_m=miles_to_meters(route["distance_mi"]),
-        )
-        known = [lvl for lvl in levels if lvl is not None]
-        scores.append(
-            RouteScore(
-                route_id=route["id"],
-                label=route["label"],
-                miles=miles.by_level,
-                unknown_miles=miles.unknown,
-                average_risk=miles.average_risk,
-                duration_s=route["duration_s"],
-            )
-        )
-        results.append(
+    scored = [_score_route(r, s, load_lb, 0) for r, s in zip(routes, per_route, strict=True)]
+    rec = recommend([s.score for s in scored])
+
+    options: list[DepartureOption] = []
+    for hours in range(0, DEPARTURE_WINDOW_H + 1, DEPARTURE_STEP_H):
+        shifted = [
+            _score_route(r, s, load_lb, hours * 3600).score
+            for r, s in zip(routes, per_route, strict=True)
+        ]
+        winner = recommend(shifted).route_id
+        best_score = next(s for s in shifted if s.route_id == winner)
+        complete = all(round(s.unknown_miles, 1) == 0 for s in shifted)
+        options.append(DepartureOption(hours, best_score, complete))
+    best = best_departure(options)
+
+    return {
+        "routes": [
             {
                 "id": route["id"],
-                "checkpoints": assessed,
-                "miles": {
-                    **{lvl.key: round(mi, 2) for lvl, mi in miles.by_level.items()},
-                    "unknown": round(miles.unknown, 2),
-                },
-                "average_risk": round(miles.average_risk, 3),
-                "max_level": max(known).key if known else None,
+                "checkpoints": [
+                    _checkpoint_payload(cp["index"], w, a)
+                    for cp, (w, a) in zip(route["checkpoints"], s.rows, strict=True)
+                ],
+                "miles": _miles_payload(s.miles),
+                "average_risk": round(s.miles.average_risk, 3),
+                "max_level": _max_level(s.miles.by_level),
             }
-        )
-
-    rec = recommend(scores)
-    return {
-        "routes": results,
+            for route, s in zip(routes, scored, strict=True)
+        ],
         "recommendation": {
             "route_id": rec.route_id,
             "ranking": rec.ranking,
@@ -363,6 +405,53 @@ def assess_routes(routes: Sequence[dict[str, Any]], load_lb: float) -> dict[str,
             "tradeoff": rec.tradeoff,
             "safe": rec.safe,
             "warnings": rec.warnings,
+        },
+        "departures": {
+            "options": [
+                {
+                    "offset_h": o.offset_h,
+                    "departure": iso(departure + timedelta(hours=o.offset_h)),
+                    "route_id": o.best.route_id,
+                    "complete": o.complete,
+                    "miles": {lvl.key: round(mi, 2) for lvl, mi in o.best.miles.items()},
+                    "average_risk": round(o.best.average_risk, 3),
+                    "max_level": _max_level(o.best.miles),
+                    "arrival": iso(
+                        departure + timedelta(hours=o.offset_h, seconds=o.best.duration_s)
+                    ),
+                }
+                for o in options
+            ],
+            "best_offset_h": best.offset_h if best else None,
+            "reason": explain_departure(options[0], best) if best else None,
+        },
+        "scenario": scenario,
+    }
+
+
+def _checkpoint_payload(index: int, w: WeatherAt | None, a: Assessment | None) -> dict[str, Any]:
+    if w is None or a is None:
+        return {"index": index, "weather": None, "risk": None}
+    return {
+        "index": index,
+        "weather": {
+            "wind_mph": round(w.wind_mph, 2),
+            "gust_mph": None if w.gust_mph is None else round(w.gust_mph, 1),
+            "rain_in_hr": round(w.rain_in_hr, 4),
+            "snow_in_hr": round(w.snow_in_hr, 4),
+            "weather_code": w.weather_code,
+            "valid_from": iso(datetime.fromtimestamp(w.valid_from, UTC)),
+            "valid_to": iso(datetime.fromtimestamp(w.valid_to, UTC)),
+        },
+        "risk": {
+            "level": a.level.key,
+            "value": int(a.level),
+            "wind": a.wind.key,
+            "rain": a.rain.key,
+            "snow": a.snow.key,
+            "load": a.load.key if a.load is not None else None,
+            "drivers": list(a.drivers),
+            "summary": a.summary,
         },
     }
 
@@ -374,14 +463,14 @@ NODATA = 255
 BYTE_SCALES = {"risk": 4 / 250, "wind": 0.5, "rain": 0.01, "snow": 0.02}
 
 
-def heatmap(lines: Sequence[Sequence[Coord]], start: datetime, load_lb: float) -> dict[str, Any]:
+def heatmap(
+    lines: Sequence[Sequence[Coord]], start: datetime, load_lb: float, scenario: str = "live"
+) -> dict[str, Any]:
     grid = build_grid(lines)
     start_hour = openmeteo.hour_floor(start)
     end_hour = start_hour + timedelta(hours=HEATMAP_HOURS)
-    try:
-        series = openmeteo.fetch_hourly(grid.centers, start_hour, end_hour)
-    except UpstreamError as exc:
-        raise upstream_error(exc) from exc
+    storm = _storm_for(lines[0][0], lines[0][-1], start) if scenario == "storm" else None
+    series = _weather(grid.centers, start_hour, end_hour, storm)
 
     hours = HEATMAP_HOURS + 1
     n = len(grid.cells)
@@ -422,6 +511,7 @@ def heatmap(lines: Sequence[Sequence[Coord]], start: datetime, load_lb: float) -
         "scales": BYTE_SCALES,
         "nodata": NODATA,
         "frames": {k: base64.b64encode(v.tobytes()).decode("ascii") for k, v in packed.items()},
+        "scenario": scenario,
     }
 
 
