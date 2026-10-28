@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -17,6 +18,11 @@ BASE_URL = "https://api.tomtom.com"
 SERVICE = "TomTom"
 
 Coord = tuple[float, float]  # (lat, lon)
+
+# Roads covering less than this share of a route are left out of its name: a 10 km
+# truck bypass shouldn't headline a 450 km trip.
+MIN_ROAD_SHARE = 0.05
+_DIRECTION = re.compile(r"\s+[NSEW]$")  # "I-90 E" -> "I-90"
 
 # A typical US 5-axle tractor with a 53 ft dry van. Dimensions make TomTom respect low
 # bridges and length limits; weight comes from the driver's load plus tare.
@@ -78,7 +84,8 @@ def calculate_routes(
         ("vehicleWeight", gross_weight_kg),
         *TRUCK_PROFILE.items(),
         ("maxAlternatives", max_alternatives),
-        ("alternativeType", "anyRoute"),
+        # TomTom rejects alternativeType on requests without alternatives (detour legs).
+        *([("alternativeType", "anyRoute")] if max_alternatives > 0 else []),
         ("instructionsType", "coded"),
         ("routeRepresentation", "polyline"),
         ("extendedRouteRepresentation", "travelTime"),
@@ -112,7 +119,11 @@ def _parse_route(route: dict[str, Any]) -> RawRoute:
 
 
 def _main_roads(instructions: list[dict[str, Any]], length_m: float) -> list[str]:
-    """Roads ranked by how far the route follows them (from guidance instructions)."""
+    """Main roads ranked by how far the route follows them (from guidance instructions).
+
+    Directions are merged ("I-90 E" and "I-90 W" are one road) and roads under
+    ``MIN_ROAD_SHARE`` of the route are dropped, except the longest.
+    """
     ordered = sorted(instructions, key=lambda i: i.get("routeOffsetInMeters", 0))
     distance: dict[str, float] = defaultdict(float)
     for current, nxt in zip(ordered, [*ordered[1:], None], strict=True):
@@ -121,8 +132,13 @@ def _main_roads(instructions: list[dict[str, Any]], length_m: float) -> list[str
         numbers = current.get("roadNumbers") or []
         name = numbers[0] if numbers else current.get("street")
         if name:
-            distance[name] += max(end - start, 0)
-    return [name for name, _ in sorted(distance.items(), key=lambda kv: -kv[1])]
+            distance[_DIRECTION.sub("", name)] += max(end - start, 0)
+    ranked = sorted(distance.items(), key=lambda kv: -kv[1])
+    return [
+        name
+        for i, (name, metres) in enumerate(ranked)
+        if i == 0 or metres >= MIN_ROAD_SHARE * length_m
+    ]
 
 
 def search_places(query: str, *, limit: int = 6) -> list[Place]:

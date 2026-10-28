@@ -172,6 +172,11 @@ def plan_routes(
     }
 
 
+# TomTom's compute time grows fast with alternatives on long trips (Denver to Chicago:
+# about 6 s for 2, 15 s for 4). Two alternatives plus the two detours give five candidates.
+MAIN_ALTERNATIVES = 2
+
+
 def _route_options(
     origin: Coord, destination: Coord, departure: datetime, now: datetime, load_lb: float
 ) -> dict[str, _Option]:
@@ -187,7 +192,7 @@ def _route_options(
 
     vias = detour_via_points(origin, destination)
     with ThreadPoolExecutor(max_workers=3) as pool:
-        main_future = pool.submit(call, [origin, destination], 4)
+        main_future = pool.submit(call, [origin, destination], MAIN_ALTERNATIVES)
         detour_futures = [pool.submit(call, [origin, via, destination], 0) for via in vias]
         try:
             main = main_future.result()
@@ -198,7 +203,7 @@ def _route_options(
             try:
                 detours.extend(future.result()[:1])
             except UpstreamError as exc:  # a detour is optional; the main route is not
-                logger.info("Detour route failed: %s", exc)
+                logger.warning("Detour route failed: %s", exc)
 
     options: dict[str, _Option] = {}
     for i, raw in enumerate(main):

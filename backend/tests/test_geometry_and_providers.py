@@ -105,7 +105,8 @@ TOMTOM_ROUTE: dict[str, Any] = {
     "guidance": {
         "instructions": [
             {"routeOffsetInMeters": 0, "street": "Colfax Ave"},
-            {"routeOffsetInMeters": 500, "roadNumbers": ["I-70"]},
+            {"routeOffsetInMeters": 500, "roadNumbers": ["I-70 E"]},
+            {"routeOffsetInMeters": 1500, "roadNumbers": ["I-70 W"], "street": "I-70"},
             {"routeOffsetInMeters": 2900, "street": "Main St"},
         ]
     },
@@ -117,7 +118,8 @@ def test_parse_tomtom_route_joins_legs_and_ranks_roads() -> None:
     assert len(raw.points) == 4
     assert raw.travel_time_s == 300
     assert raw.progress == [(0, 0.0), (3, 300.0)]
-    assert raw.roads == ["I-70", "Colfax Ave", "Main St"]
+    # Directions merge into one road; Main St (100 m of 3 km) is too short to name.
+    assert raw.roads == ["I-70", "Colfax Ave"]
 
 
 @respx.mock
@@ -135,6 +137,18 @@ def test_tomtom_request_uses_truck_profile(settings: Any) -> None:
     assert params["vehicleWeight"] == "34000"
     assert params["vehicleCommercial"] == "true"
     assert params.get_list("extendedRouteRepresentation") == ["travelTime", "distance"]
+    # TomTom rejects alternativeType without alternatives (the detour requests).
+    assert "alternativeType" not in params
+
+    tomtom.calculate_routes(
+        [(40.0, -105.0), (40.0, -104.97)],
+        depart_at=None,
+        gross_weight_kg=34_000,
+        max_alternatives=4,
+    )
+    params = route.calls.last.request.url.params
+    assert params["maxAlternatives"] == "4"
+    assert params["alternativeType"] == "anyRoute"
 
 
 @respx.mock
