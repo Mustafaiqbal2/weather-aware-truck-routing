@@ -3,12 +3,15 @@ import './maplibreWorker'
 import type { MapLayerMouseEvent } from 'maplibre-gl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Map as MapGL, type MapRef, NavigationControl } from 'react-map-gl/maplibre'
+import { useShallow } from 'zustand/react/shallow'
 import { HeatmapHost } from '@/features/heatmap/HeatmapHost'
 import type { RouteId } from '@/lib/api/client'
 import { prefersReducedMotion } from '@/lib/motion'
 import type { TripView } from '@/lib/queries'
+import { mapPadding, type Padding, useLayout } from '@/store/layout'
 import { useTrip } from '@/store/trip'
 import { CheckpointPopup } from './CheckpointPopup'
+import { DraftPins, type PickedPoint, PlacePickPopup } from './PlacePicker'
 import { type CheckpointFeatureProps, CheckpointLayers, RouteLayers } from './RouteLayers'
 import { RouteLabels } from './RouteLabels'
 import { TruckLayer } from './TruckLayer'
@@ -29,6 +32,24 @@ export function MapView({ view }: { view: TripView | undefined }) {
   const hoverRoute = useTrip((s) => s.hoverRoute)
   const selectRoute = useTrip((s) => s.selectRoute)
   const selectCheckpoint = useTrip((s) => s.selectCheckpoint)
+  const compact = useLayout((s) => s.compact)
+  const padding = useLayout(useShallow(mapPadding))
+  const [picked, setPicked] = useState<PickedPoint | null>(null)
+
+  // The visible part of the map changed (the phone sheet moved): pan so whatever was centred
+  // stays centred. A pan, not padding: MapLibre adds a map's padding to every later fit.
+  // Declared before the route scene so a new plan's camera fit wins over this pan.
+  const lastPadding = useRef(padding)
+  useEffect(() => {
+    const map = mapRef.current?.getMap()
+    const prev = lastPadding.current
+    lastPadding.current = padding
+    if (!ready || !map || prev === padding) return
+    const [dx, dy] = [centreShift(prev, padding, 'x'), centreShift(prev, padding, 'y')]
+    // Small changes (the dock's measured height) aren't worth interrupting a camera fit.
+    if (Math.abs(dx) + Math.abs(dy) < 24 || map.isMoving()) return
+    map.panBy([dx, dy], { duration: prefersReducedMotion() ? 0 : 450, essential: false })
+  }, [ready, padding])
 
   useRouteScene(mapRef, view, ready)
 
@@ -55,7 +76,7 @@ export function MapView({ view }: { view: TripView | undefined }) {
       center: [cp.lon, cp.lat],
       zoom: Math.max(map.getZoom(), 6.5),
       duration: prefersReducedMotion() ? 0 : 900,
-      padding: { top: 120, bottom: 200, left: 40, right: 40 },
+      offset: centreOffset(mapPadding(useLayout.getState())),
     })
   }, [selectedCheckpoint, view])
 
@@ -76,8 +97,17 @@ export function MapView({ view }: { view: TripView | undefined }) {
 
   const onClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      // Clicks on route labels and popups also reach the map; they handle themselves.
+      const target = e.originalEvent.target
+      if (target instanceof Element && target.closest('.maplibregl-marker, .maplibregl-popup')) return
       const feature = e.features?.[0]
-      if (!feature) return
+      if (!feature) {
+        // Empty map: close an open checkpoint first, otherwise offer to drop a pin here.
+        if (useTrip.getState().selectedCheckpoint) selectCheckpoint(null)
+        else setPicked({ lng: e.lngLat.lng, lat: e.lngLat.lat })
+        return
+      }
+      setPicked(null)
       const props = feature.properties as { routeId: RouteId; index?: number }
       if (feature.layer.id === CHECKPOINT_LAYER && props.index !== undefined) {
         selectCheckpoint({ routeId: props.routeId, index: props.index, origin: 'map' })
@@ -117,7 +147,7 @@ export function MapView({ view }: { view: TripView | undefined }) {
         attributionControl={{ compact: true }}
         style={{ position: 'absolute', inset: 0 }}
       >
-        <NavigationControl position="top-right" showCompass={false} />
+        {!compact && <NavigationControl position="top-right" showCompass={false} />}
         {ready && (
           <>
             <HeatmapHost plan={view?.plan} beforeId={labelLayer} />
@@ -140,6 +170,8 @@ export function MapView({ view }: { view: TripView | undefined }) {
             )}
             {view && <RouteLabels routes={view.routes} />}
             <CheckpointPopup view={view} />
+            <DraftPins view={view} />
+            {picked && <PlacePickPopup point={picked} onClose={() => setPicked(null)} />}
           </>
         )}
       </MapGL>
@@ -169,6 +201,16 @@ export function MapView({ view }: { view: TripView | undefined }) {
       )}
     </>
   )
+}
+
+/** Where the visible area's centre sits relative to the container's centre (px). */
+function centreOffset(p: Padding): [number, number] {
+  return [(p.left - p.right) / 2, (p.top - p.bottom) / 2]
+}
+
+function centreShift(from: Padding, to: Padding, axis: 'x' | 'y'): number {
+  const i = axis === 'x' ? 0 : 1
+  return centreOffset(from)[i]! - centreOffset(to)[i]!
 }
 
 function checkpointFeatures(view: TripView | undefined): FeatureCollection<Point, CheckpointFeatureProps> {

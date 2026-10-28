@@ -3,25 +3,29 @@ import { useMemo } from 'react'
 import { Marker, useMap } from 'react-map-gl/maplibre'
 import type { RouteId } from '@/lib/api/client'
 import { cn } from '@/lib/cn'
-import { formatDuration } from '@/lib/format'
-import { bounds, labelAnchors, type LngLat } from '@/lib/geo'
+import { formatDuration, formatDurationShort } from '@/lib/format'
+import { bounds, LABEL_BOX, LABEL_BOX_COMPACT, labelAnchors, type LngLat } from '@/lib/geo'
 import { EASE_OUT } from '@/lib/motion'
 import type { RouteView } from '@/lib/queries'
 import { LEVEL_COLOR, LEVEL_LABEL, type Level } from '@/lib/risk'
+import { mapPadding, useLayout } from '@/store/layout'
 import { useTrip } from '@/store/trip'
-import { MAP_PADDING } from './useRouteScene'
 
 /** Route summaries pinned to the map, placed where the routes are farthest apart. */
 export function RouteLabels({ routes }: { routes: RouteView[] }) {
   const { current: mapRef } = useMap()
   const planKey = routes.map((r) => `${r.id}:${r.distance_mi}`).join('|')
+  // Phones get small labels: the route letter, drive time and risk.
+  const compact = useLayout((s) => s.compact)
   // Place labels for the zoom the camera settles on after fitting the routes.
   const anchors = useMemo(() => {
     const lines = routes.map((r) => r.geometry as LngLat[])
-    const camera = mapRef?.getMap().cameraForBounds(bounds(lines), { padding: MAP_PADDING })
+    const camera = mapRef
+      ?.getMap()
+      .cameraForBounds(bounds(lines), { padding: mapPadding(useLayout.getState()) })
     const pxPerUnit = 512 * 2 ** (camera?.zoom ?? 5)
-    return labelAnchors(lines, pxPerUnit)
-  }, [planKey, mapRef]) // eslint-disable-line react-hooks/exhaustive-deps
+    return labelAnchors(lines, pxPerUnit, compact ? LABEL_BOX_COMPACT : LABEL_BOX)
+  }, [planKey, mapRef, compact]) // eslint-disable-line react-hooks/exhaustive-deps
   const selected = useTrip((s) => s.selectedRouteId)
   const hovered = useTrip((s) => s.hoveredRouteId)
   const selectRoute = useTrip((s) => s.selectRoute)
@@ -47,7 +51,8 @@ export function RouteLabels({ routes }: { routes: RouteView[] }) {
           onMouseEnter={() => hoverRoute(route.id as RouteId)}
           onMouseLeave={() => hoverRoute(null)}
           className={cn(
-            'group flex items-center gap-2 rounded-lg border bg-ink-850/95 py-1.5 pr-2.5 pl-1.5 text-left shadow-[0_8px_24px_rgb(0_0_0/0.45)]',
+            'group flex items-center gap-2 rounded-lg border bg-ink-850/95 pr-2.5 pl-1.5 text-left shadow-[0_8px_24px_rgb(0_0_0/0.45)]',
+            compact ? 'py-1' : 'py-1.5',
             route.recommended ? 'border-amber/60' : 'border-line-strong',
           )}
           aria-label={`Route ${route.id}, ${route.label}`}
@@ -60,21 +65,35 @@ export function RouteLabels({ routes }: { routes: RouteView[] }) {
           >
             {route.id}
           </span>
-          <span className="flex flex-col leading-tight">
-            <span className="max-w-[170px] truncate text-[12px] font-medium text-fg">{route.label}</span>
-            <span className="flex items-center gap-1.5 font-mono text-[11px] text-fg-muted">
-              {formatDuration(route.duration_s)}
-              <span className="text-fg-faint">·</span>
-              {level ? (
-                <span className="flex items-center gap-1">
-                  <span className="size-1.5 rounded-full" style={{ background: LEVEL_COLOR[level] }} />
-                  {LEVEL_LABEL[level]}
-                </span>
-              ) : (
-                <span className="text-fg-faint">assessing</span>
-              )}
+          {compact ? (
+            <span className="flex items-center gap-1.5 font-mono text-[11.5px] text-fg">
+              {formatDurationShort(route.duration_s)}
+              <span
+                className="size-2 rounded-full"
+                style={{ background: level ? LEVEL_COLOR[level] : LEVEL_COLOR.unknown }}
+                aria-label={level ? `${LEVEL_LABEL[level]} at worst` : 'assessing'}
+                role="img"
+              />
             </span>
-          </span>
+          ) : (
+            <span className="flex flex-col leading-tight">
+              {!compact && (
+                <span className="max-w-[170px] truncate text-[12px] font-medium text-fg">{route.label}</span>
+              )}
+              <span className="flex items-center gap-1.5 font-mono text-[11px] text-fg-muted">
+                {formatDuration(route.duration_s)}
+                <span className="text-fg-faint">·</span>
+                {level ? (
+                  <span className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full" style={{ background: LEVEL_COLOR[level] }} />
+                    {LEVEL_LABEL[level]}
+                  </span>
+                ) : (
+                  <span className="text-fg-faint">assessing</span>
+                )}
+              </span>
+            </span>
+          )}
         </motion.button>
       </Marker>
     )

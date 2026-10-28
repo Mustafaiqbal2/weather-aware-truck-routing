@@ -523,6 +523,14 @@ def heatmap(
 # --- Geocoding ----------------------------------------------------------------------
 
 
+def reverse_geocode(lat: float, lon: float) -> dict[str, Any] | None:
+    try:
+        place = routing.reverse_geocode(lat, lon)
+    except UpstreamError as exc:
+        raise upstream_error(exc) from exc
+    return place.__dict__ if place else None
+
+
 def geocode(query: str) -> list[dict[str, Any]]:
     try:
         places = routing.search_places(query)

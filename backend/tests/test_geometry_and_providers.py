@@ -222,3 +222,37 @@ def test_open_meteo_single_location_object_response() -> None:
     start = datetime.fromtimestamp(1_800_000_000, UTC)
     [series] = openmeteo.fetch_hourly([(45.0, -110.0)], start, start)
     assert series.wind_kmh[0] == 7
+
+
+@respx.mock
+def test_tomtom_reverse_geocode_names_the_town_and_skips_open_water(settings: Any) -> None:
+    settings.TOMTOM_API_KEY = "test-key"
+    town = {
+        "id": "r1",
+        "address": {
+            "countryCode": "US",
+            "municipality": "Bushnell",
+            "countrySubdivisionCode": "NE",
+            "freeformAddress": "Bushnell, NE 69128",
+        },
+        "position": "41.003624,-104.000092",
+    }
+    ocean = {"id": "sea", "address": {"routeNumbers": []}, "position": "45.000000,-140.000000"}
+    route = respx.get(url__regex=r"https://api\.tomtom\.com/search/2/reverseGeocode/.*").mock(
+        side_effect=[
+            httpx.Response(200, json={"addresses": [town]}),
+            httpx.Response(200, json={"addresses": [ocean]}),
+        ]
+    )
+    place = tomtom.reverse_geocode(41.0, -104.0)
+    # The picked point is kept; TomTom's address position is only used for the name.
+    assert place == tomtom.Place(
+        id="r1",
+        label="Bushnell, NE",
+        detail="Bushnell, NE 69128",
+        lat=41.0,
+        lon=-104.0,
+        kind="Point",
+    )
+    assert "/reverseGeocode/41.000000,-104.000000.json" in str(route.calls[0].request.url)
+    assert tomtom.reverse_geocode(45.0, -140.0) is None

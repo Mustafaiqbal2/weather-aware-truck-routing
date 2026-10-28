@@ -116,6 +116,11 @@ class GeocodeQuerySerializer(serializers.Serializer[Any]):
     q = serializers.CharField(min_length=3, max_length=120)
 
 
+class ReverseQuerySerializer(serializers.Serializer[Any]):
+    lat = serializers.FloatField(min_value=-90, max_value=90)
+    lon = serializers.FloatField(min_value=-180, max_value=180)
+
+
 # --- Responses ---------------------------------------------------------------------
 
 

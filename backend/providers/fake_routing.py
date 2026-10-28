@@ -80,6 +80,13 @@ def calculate_routes(
     return routes
 
 
+def reverse_geocode(lat: float, lon: float) -> Place | None:
+    name, _, _ = min(CITIES, key=lambda c: (c[1] - lat) ** 2 + (c[2] - lon) ** 2)
+    return Place(
+        id=f"near:{name}", label=f"Near {name}", detail="Demo place", lat=lat, lon=lon, kind="Point"
+    )
+
+
 def search_places(query: str, *, limit: int = 6) -> list[Place]:
     q = query.lower()
     return [

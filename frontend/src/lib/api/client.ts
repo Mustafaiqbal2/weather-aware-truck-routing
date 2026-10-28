@@ -56,6 +56,8 @@ export const api = {
   health: (signal?: AbortSignal) => unwrap(client.GET('/api/health', { signal })),
   geocode: (q: string, signal?: AbortSignal) =>
     unwrap(client.GET('/api/geocode', { params: { query: { q } }, signal })),
+  reverse: (lat: number, lon: number, signal?: AbortSignal) =>
+    unwrap(client.GET('/api/reverse', { params: { query: { lat, lon } }, signal })),
   routes: (body: RoutesRequest, signal?: AbortSignal) => unwrap(client.POST('/api/routes', { body, signal })),
   assess: (body: Schemas['AssessRequestRequest'], signal?: AbortSignal) =>
     unwrap(client.POST('/api/assess', { body, signal })),

@@ -85,6 +85,30 @@ def geocode(request: Request) -> Response:
 
 
 @extend_schema(
+    parameters=[
+        OpenApiParameter("lat", float, required=True),
+        OpenApiParameter("lon", float, required=True),
+    ],
+    responses={200: s.GeocodeResultSerializer, 404: s.ErrorSerializer, **ERRORS},
+)
+@api_view(["GET"])
+@_errors
+def reverse_geocode(request: Request) -> Response:
+    """Name a point picked on the map (the nearest town)."""
+    query = s.ReverseQuerySerializer(data=request.query_params)
+    query.is_valid(raise_exception=True)
+    lat, lon = query.validated_data["lat"], query.validated_data["lon"]
+    key = f"rev:{lat:.3f},{lon:.3f}"  # about 100 m: a click's precision
+    place = cache.get(key)
+    if place is None:
+        place = services.reverse_geocode(lat, lon) or {}
+        cache.set(key, place, GEOCODE_CACHE_S)
+    if not place:
+        return _error("not_found", "No address near this point.", status.HTTP_404_NOT_FOUND)
+    return Response({**place, "lat": lat, "lon": lon})
+
+
+@extend_schema(
     request=s.RoutesRequestSerializer, responses={200: s.RoutesResponseSerializer, **ERRORS}
 )
 @api_view(["POST"])

@@ -14,6 +14,13 @@ export function formatDuration(seconds: number): string {
   return rest ? `${hours} h ${rest} min` : `${hours} h`
 }
 
+/** Tight form for small labels: "16h59", "45m". */
+export function formatDurationShort(seconds: number): string {
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`
+}
+
 export function formatLoad(lb: number): string {
   return `${numberFormat.format(Math.round(lb))} lb`
 }

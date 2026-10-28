@@ -1,9 +1,11 @@
 import { create } from 'zustand'
-import type { RouteId, RoutesRequest } from '@/lib/api/client'
+import type { PlaceInput, RouteId, RoutesRequest } from '@/lib/api/client'
 
 export type HeatVariable = 'risk' | 'wind' | 'rain' | 'snow'
 /** "storm" overlays a clearly labelled simulated storm on the real forecast. */
 export type Scenario = 'live' | 'storm'
+
+export type PlaceRole = 'origin' | 'destination'
 
 export interface SelectedCheckpoint {
   routeId: RouteId
@@ -13,6 +15,8 @@ export interface SelectedCheckpoint {
 }
 
 interface TripState {
+  /** Places chosen in the form or picked on the map, before they are planned. */
+  draft: Record<PlaceRole, PlaceInput | null>
   request: RoutesRequest | null
   /** Increments on every submit; data queries are keyed by it. */
   requestId: number
@@ -23,6 +27,8 @@ interface TripState {
   heatVisible: boolean
   scenario: Scenario
 
+  setDraftPlace: (role: PlaceRole, place: PlaceInput | null) => void
+  swapDraft: () => void
   submit: (request: RoutesRequest) => void
   selectRoute: (id: RouteId | null) => void
   hoverRoute: (id: RouteId | null) => void
@@ -33,6 +39,7 @@ interface TripState {
 }
 
 export const useTrip = create<TripState>()((set) => ({
+  draft: { origin: null, destination: null },
   request: null,
   requestId: 0,
   selectedRouteId: null,
@@ -42,6 +49,8 @@ export const useTrip = create<TripState>()((set) => ({
   heatVisible: true,
   scenario: 'live',
 
+  setDraftPlace: (role, place) => set((s) => ({ draft: { ...s.draft, [role]: place } })),
+  swapDraft: () => set((s) => ({ draft: { origin: s.draft.destination, destination: s.draft.origin } })),
   submit: (request) =>
     set((s) => ({
       request,

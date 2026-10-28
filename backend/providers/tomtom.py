@@ -141,6 +141,30 @@ def _main_roads(instructions: list[dict[str, Any]], length_m: float) -> list[str
     ]
 
 
+def reverse_geocode(lat: float, lon: float) -> Place | None:
+    """The town (and street address) nearest a point; None over open water."""
+    url = f"{BASE_URL}/search/2/reverseGeocode/{lat:.6f},{lon:.6f}.json"
+    data = get_json(SERVICE, url, {"key": _key(), "language": "en-US"})
+    for result in data.get("addresses", []):
+        address = result.get("address", {})
+        if not address.get("countryCode"):
+            continue  # ocean: TomTom answers with a world-sized bounding box
+        town = address.get("municipality") or address.get("localName")
+        region = address.get("countrySubdivisionCode") or address.get("countrySubdivision")
+        label = ", ".join(x for x in (town, region) if x) or address.get("freeformAddress", "")
+        if not label:
+            continue
+        return Place(
+            id=str(result.get("id", "")),
+            label=label,
+            detail=address.get("freeformAddress") or address.get("country", ""),
+            lat=lat,
+            lon=lon,
+            kind="Point",
+        )
+    return None
+
+
 def search_places(query: str, *, limit: int = 6) -> list[Place]:
     params = {
         "key": _key(),

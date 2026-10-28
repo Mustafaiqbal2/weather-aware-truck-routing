@@ -18,7 +18,7 @@ import { Legend } from './Legend'
 const PLAY_HOURS_PER_SECOND = 4
 const LAYER_OPTIONS = CHANNELS.map((c) => ({ value: c, label: RAMPS[c].label }))
 
-export function TimelineDock({ view }: { view: TripView | undefined }) {
+export function TimelineDock({ view, compact = false }: { view: TripView | undefined; compact?: boolean }) {
   const heat = useHeatmapData(view?.plan)
   const hour = useTimeline((s) => s.hour)
   const playing = useTimeline((s) => s.playing)
@@ -80,85 +80,123 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
   const loading = heat.isPending
   const failed = heat.isError
 
+  const playButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (!playing && hour >= TIMELINE_HOURS) setHour(0)
+        setPlaying(!playing)
+      }}
+      disabled={!heat.data}
+      className={cn(
+        'grid shrink-0 place-items-center rounded-full bg-amber text-ink-950 transition-transform hover:scale-105 active:scale-95 disabled:opacity-40',
+        compact ? 'size-9' : 'size-10',
+      )}
+      aria-label={playing ? 'Pause forecast' : 'Play forecast'}
+    >
+      {playing ? (
+        <Pause className="size-4" fill="currentColor" />
+      ) : (
+        <Play className="ml-0.5 size-4" fill="currentColor" />
+      )}
+    </button>
+  )
+
+  const clock = (
+    <div className={compact ? 'min-w-0' : 'w-[132px] shrink-0'}>
+      <p
+        className={cn(
+          'font-mono leading-tight text-fg tabular-nums',
+          compact ? 'text-[13px]' : 'text-[15px]',
+        )}
+      >
+        {label ? `${label.day} ${label.time}` : '—'}
+      </p>
+      <p className="font-mono text-[11px] text-fg-faint tabular-nums">
+        {label?.zone} · +{Math.floor(hour)}h{String(Math.round((hour % 1) * 60)).padStart(2, '0')}
+      </p>
+    </div>
+  )
+
+  const slider = (
+    <div className={cn('relative', !compact && 'min-w-[220px] flex-1')}>
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2">
+        {tripBand && tripBand.width > 0 && (
+          <span
+            className="absolute top-0 h-full rounded-full bg-amber/25 ring-1 ring-amber/40"
+            style={{ left: `${tripBand.left}%`, width: `${tripBand.width}%` }}
+            title={`Route ${route?.id} on the road`}
+          />
+        )}
+      </div>
+      <Slider.Root
+        value={[hour]}
+        min={0}
+        max={TIMELINE_HOURS}
+        step={0.25}
+        onValueChange={([v]) => {
+          if (playing) setPlaying(false)
+          setHour(v ?? 0)
+        }}
+        className="relative flex h-6 touch-none items-center select-none"
+        aria-label="Forecast hour"
+        disabled={!heat.data}
+      >
+        <Slider.Track className={cn('relative h-1.5 grow rounded-full bg-ink-700', loading && 'skeleton')}>
+          <Slider.Range className="absolute h-full rounded-full bg-fg/25" />
+        </Slider.Track>
+        <Slider.Thumb
+          aria-label="Forecast hour"
+          className="block size-4 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_0_4px_rgb(245_165_36/0.25)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-amber"
+        />
+      </Slider.Root>
+      {!compact && <Ticks startIso={startIso} tz={tz} />}
+    </div>
+  )
+
+  const layers = (
+    <Segmented<HeatVariable>
+      label="Heatmap layer"
+      size="sm"
+      value={variable}
+      onChange={setVariable}
+      options={LAYER_OPTIONS}
+    />
+  )
+
+  const panel = 'rounded-2xl border border-line-strong bg-ink-850/95 shadow-[0_20px_60px_rgb(0_0_0/0.55)]'
+  const enter = {
+    initial: prefersReducedMotion() ? false : { opacity: 0, y: 24 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.5, ease: EASE_OUT, delay: 0.2 },
+  } as const
+
+  // Phones: two rows riding on top of the bottom sheet.
+  if (compact) {
+    return (
+      <motion.div {...enter} className={cn(panel, 'p-2.5')}>
+        <div className="flex items-center gap-2.5">
+          {playButton}
+          {clock}
+          <div className="ml-auto">{layers}</div>
+        </div>
+        <div className="mt-1 px-1">{slider}</div>
+      </motion.div>
+    )
+  }
+
   return (
     <motion.div
-      initial={prefersReducedMotion() ? false : { opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.2 }}
-      className="pointer-events-none absolute inset-x-3 bottom-3 z-10 flex justify-center md:inset-x-5 md:bottom-5"
+      {...enter}
+      className="pointer-events-none absolute inset-x-5 bottom-5 z-10 flex justify-center"
     >
-      <div className="pointer-events-auto w-full max-w-[880px] rounded-2xl border border-line-strong bg-ink-850/95 p-3 shadow-[0_20px_60px_rgb(0_0_0/0.55)] md:p-4">
+      <div className={cn(panel, 'pointer-events-auto w-full max-w-[880px] p-4')}>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (!playing && hour >= TIMELINE_HOURS) setHour(0)
-              setPlaying(!playing)
-            }}
-            disabled={!heat.data}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-amber text-ink-950 transition-transform hover:scale-105 active:scale-95 disabled:opacity-40"
-            aria-label={playing ? 'Pause forecast' : 'Play forecast'}
-          >
-            {playing ? (
-              <Pause className="size-4" fill="currentColor" />
-            ) : (
-              <Play className="ml-0.5 size-4" fill="currentColor" />
-            )}
-          </button>
-
-          <div className="w-[132px] shrink-0">
-            <p className="font-mono text-[15px] leading-tight text-fg tabular-nums">
-              {label ? `${label.day} ${label.time}` : '—'}
-            </p>
-            <p className="font-mono text-[11px] text-fg-faint tabular-nums">
-              {label?.zone} · +{Math.floor(hour)}h{String(Math.round((hour % 1) * 60)).padStart(2, '0')}
-            </p>
-          </div>
-
-          <div className="relative min-w-[220px] flex-1">
-            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2">
-              {tripBand && tripBand.width > 0 && (
-                <span
-                  className="absolute top-0 h-full rounded-full bg-amber/25 ring-1 ring-amber/40"
-                  style={{ left: `${tripBand.left}%`, width: `${tripBand.width}%` }}
-                  title={`Route ${route?.id} on the road`}
-                />
-              )}
-            </div>
-            <Slider.Root
-              value={[hour]}
-              min={0}
-              max={TIMELINE_HOURS}
-              step={0.25}
-              onValueChange={([v]) => {
-                if (playing) setPlaying(false)
-                setHour(v ?? 0)
-              }}
-              className="relative flex h-6 touch-none items-center select-none"
-              aria-label="Forecast hour"
-              disabled={!heat.data}
-            >
-              <Slider.Track
-                className={cn('relative h-1.5 grow rounded-full bg-ink-700', loading && 'skeleton')}
-              >
-                <Slider.Range className="absolute h-full rounded-full bg-fg/25" />
-              </Slider.Track>
-              <Slider.Thumb
-                aria-label="Forecast hour"
-                className="block size-4 rounded-full border-2 border-ink-950 bg-fg shadow-[0_0_0_4px_rgb(245_165_36/0.25)] transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-amber"
-              />
-            </Slider.Root>
-            <Ticks startIso={startIso} tz={tz} />
-          </div>
-
+          {playButton}
+          {clock}
+          {slider}
           <div className="flex items-center gap-2">
-            <Segmented<HeatVariable>
-              label="Heatmap layer"
-              size="sm"
-              value={variable}
-              onChange={setVariable}
-              options={LAYER_OPTIONS}
-            />
+            {layers}
             <button
               type="button"
               onClick={toggleHeat}
@@ -170,7 +208,7 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
             </button>
           </div>
         </div>
-        <div className="mt-2.5 hidden items-center justify-between gap-4 md:flex">
+        <div className="mt-2.5 flex items-center justify-between gap-4">
           <Legend variable={variable} />
           {truck && route && view.recommendation && (
             <p className="flex items-center gap-1.5 font-mono text-[11px] text-fg-muted">

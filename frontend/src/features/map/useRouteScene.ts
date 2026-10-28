@@ -5,10 +5,9 @@ import type { RouteId } from '@/lib/api/client'
 import { bounds, type LngLat } from '@/lib/geo'
 import type { TripView } from '@/lib/queries'
 import type { Level } from '@/lib/risk'
+import { mapPadding, useLayout } from '@/store/layout'
 import { useTrip } from '@/store/trip'
 import { RouteScene, riskSegments, sceneRoute } from './scene'
-
-export const MAP_PADDING = { top: 72, bottom: 190, left: 72, right: 72 }
 
 /**
  * Drives the map: fits the camera to new routes, animates them drawing on, wipes risk
@@ -39,7 +38,7 @@ export function useRouteScene(
 
     const reduced = prefersReducedMotion()
     map.fitBounds(bounds(routes.map((r) => r.line)), {
-      padding: MAP_PADDING,
+      padding: mapPadding(useLayout.getState()),
       duration: reduced ? 0 : 1300,
       essential: false,
     })

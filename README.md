@@ -77,6 +77,8 @@ The browser draws it with a small **WebGL2 layer**. All 49 hourly frames are upl
 - **Storm drill.** An opt-in, clearly labelled simulated storm is laid over the real forecast (the larger value wins). It shows the rules, the reroute and the departure-window logic working on a calm day. The map, recommendation and URL all say it's simulated.
 - **Ghost trucks.** As the forecast plays, a marker shows where each route's truck would be at that hour, coloured by the risk on that stretch.
 - **Shareable links.** The trip lives in the URL, and **Copy link** opens the same plan.
+- **Drop a pin.** Click empty map to name the spot (TomTom reverse geocoding) and use it as the start or end.
+- **Phone layout.** A full-screen map under a draggable bottom sheet with three snap points. The forecast dock rides on the sheet, and the camera keeps routes framed in the visible map.
 - **Resilience.** The page wakes the API on load and explains a slow cold start kindly. If the basemap host is unreachable, routes and the recommendation still work and the map says why it's missing. Provider rate limits show a clear message and retry.
 
 ## Architecture
@@ -101,6 +103,7 @@ vercel.json             one Vercel project, two services: the React app at /, Dj
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/geocode?q=` | Place autocomplete (TomTom, US and Canada) |
+| `GET /api/reverse?lat=&lon=` | Name a point picked on the map |
 | `POST /api/routes` | Three routes with checkpoints and ETAs |
 | `POST /api/assess` | Weather and risk per checkpoint, recommendation, departure window |
 | `POST /api/heatmap` | 49 hourly frames of corridor weather |

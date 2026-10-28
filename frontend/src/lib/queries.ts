@@ -93,6 +93,19 @@ export function useGeocode(query: string) {
   })
 }
 
+/** Name for a point picked on the map. Rounded to ~100 m, like the server's cache. */
+export function useReverseGeocode(point: { lat: number; lng: number } | null) {
+  const lat = point ? Math.round(point.lat * 1000) / 1000 : 0
+  const lon = point ? Math.round(point.lng * 1000) / 1000 : 0
+  return useQuery({
+    queryKey: ['reverse', lat, lon],
+    queryFn: ({ signal }) => api.reverse(lat, lon, signal),
+    enabled: point !== null,
+    staleTime: Infinity,
+    retry: false,
+  })
+}
+
 export interface RouteView extends Route {
   assessment: AssessedRoute | undefined
   /** 0-based position in the recommendation ranking, once assessed. */

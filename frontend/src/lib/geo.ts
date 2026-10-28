@@ -108,6 +108,8 @@ export function bounds(lines: LngLat[][]): [LngLat, LngLat] {
 
 /** Screen size of a route label (px) and how far above its anchor it sits. */
 export const LABEL_BOX = { width: 236, height: 46, lift: 12 }
+/** Phone labels show only the route letter, drive time and risk. */
+export const LABEL_BOX_COMPACT = { width: 118, height: 30, lift: 10 }
 
 /**
  * Where to put each route's label. Candidates run along the middle 70% of each route;
@@ -115,8 +117,8 @@ export const LABEL_BOX = { width: 236, height: 46, lift: 12 }
  * Mercator unit). Overlapping an already-placed label costs the most, then being close
  * to another route's line, then straying from the middle.
  */
-export function labelAnchors(lines: LngLat[][], pxPerUnit: number): LngLat[] {
-  const { width: W, height: H, lift } = LABEL_BOX
+export function labelAnchors(lines: LngLat[][], pxPerUnit: number, box = LABEL_BOX): LngLat[] {
+  const { width: W, height: H, lift } = box
   const routePx = lines.map((line) => {
     const step = Math.max(1, Math.floor(line.length / 150))
     return line

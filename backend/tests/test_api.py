@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from rest_framework.test import APIClient
 
+from providers import routing, tomtom
 from tests.conftest import DESTINATION, ORIGIN
 
 DENVER = ZoneInfo("America/Denver")
@@ -230,3 +231,39 @@ def test_fake_routing_in_debug(client: APIClient, settings: Any, fake_weather: A
     plan = _plan(client)
     assert len(plan["routes"]) == 3
     assert _assess(client, plan)["recommendation"]["route_id"] in {"A", "B", "C"}
+
+
+def test_reverse_geocode_names_a_point_picked_on_the_map(
+    client: APIClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[float, float]] = []
+
+    def fake(lat: float, lon: float) -> tomtom.Place:
+        calls.append((lat, lon))
+        return tomtom.Place("r1", "Bushnell, NE", "Bushnell, NE 69128", lat, lon, "Point")
+
+    monkeypatch.setattr(routing, "reverse_geocode", fake)
+    response = client.get("/api/reverse", {"lat": 41.00012, "lon": -104.00031})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["label"] == "Bushnell, NE"
+    assert (body["lat"], body["lon"]) == (41.00012, -104.00031)
+
+    # A second click a few metres away reuses the cached name but keeps its own point.
+    again = client.get("/api/reverse", {"lat": 41.00014, "lon": -104.00029}).json()
+    assert len(calls) == 1
+    assert (again["label"], again["lat"]) == ("Bushnell, NE", 41.00014)
+
+
+def test_reverse_geocode_over_open_water_is_not_found(
+    client: APIClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(routing, "reverse_geocode", lambda lat, lon: None)
+    response = client.get("/api/reverse", {"lat": 45.0, "lon": -140.0})
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+
+
+def test_reverse_geocode_rejects_bad_coordinates(client: APIClient) -> None:
+    assert client.get("/api/reverse", {"lat": 95, "lon": 0}).status_code == 400
+    assert client.get("/api/reverse", {"lat": 40}).status_code == 400

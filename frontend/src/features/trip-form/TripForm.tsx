@@ -23,8 +23,13 @@ function nextQuarterHour(): string {
 export function TripForm({ busy }: { busy: boolean }) {
   const submit = useTrip((s) => s.submit)
   const current = useTrip((s) => s.request)
-  const [origin, setOrigin] = useState<PlaceInput | null>(null)
-  const [destination, setDestination] = useState<PlaceInput | null>(null)
+  // Places live in the store so a pin dropped on the map can fill them too.
+  const origin = useTrip((s) => s.draft.origin)
+  const destination = useTrip((s) => s.draft.destination)
+  const setDraftPlace = useTrip((s) => s.setDraftPlace)
+  const swapDraft = useTrip((s) => s.swapDraft)
+  const setOrigin = (place: PlaceInput | null) => setDraftPlace('origin', place)
+  const setDestination = (place: PlaceInput | null) => setDraftPlace('destination', place)
   const [departure, setDeparture] = useState<Departure>(() => ({
     mode: 'now',
     date: new Date(),
@@ -84,10 +89,7 @@ export function TripForm({ busy }: { busy: boolean }) {
         <PlaceField label="Destination" marker="destination" value={destination} onChange={setDestination} />
         <button
           type="button"
-          onClick={() => {
-            setOrigin(destination)
-            setDestination(origin)
-          }}
+          onClick={swapDraft}
           className="absolute top-1/2 right-2.5 grid size-7 -translate-y-1/2 place-items-center rounded-md border border-line-strong bg-ink-800 text-fg-muted transition-colors hover:text-fg"
           aria-label="Swap origin and destination"
         >

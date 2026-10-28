@@ -1,4 +1,4 @@
-import { CloudSun, Link2, Route as RouteIcon, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { CloudSun, Link2, MapPin, Route as RouteIcon, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { motion } from 'motion/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
@@ -153,6 +153,15 @@ function HowItWorks() {
           </span>
         </motion.li>
       ))}
+      <motion.li
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.45, ease: EASE_OUT, delay: 0.45 }}
+        className="flex items-center gap-2 rounded-lg border border-dashed border-line px-3 py-2 text-[12.5px] text-fg-muted"
+      >
+        <MapPin className="size-3.5 shrink-0 text-amber" aria-hidden />
+        Or click the map to drop a start or end pin.
+      </motion.li>
     </ol>
   )
 }

@@ -37,6 +37,11 @@ def calculate_routes(
     )
 
 
+def reverse_geocode(lat: float, lon: float) -> tomtom.Place | None:
+    impl = fake_routing.reverse_geocode if _fake() else tomtom.reverse_geocode
+    return impl(lat, lon)
+
+
 def search_places(query: str, *, limit: int = 6) -> list[tomtom.Place]:
     if _fake():
         return fake_routing.search_places(query, limit=limit)
