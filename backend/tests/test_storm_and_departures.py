@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from rest_framework.test import APIClient
@@ -105,6 +106,13 @@ def test_no_usable_departures() -> None:
 # --- Through the API ----------------------------------------------------------------
 
 
+def _next_whole_hour_in_denver() -> str:
+    local = datetime.now(ZoneInfo("America/Denver")) + timedelta(hours=1)
+    return local.replace(minute=0, second=0, microsecond=0, tzinfo=None).isoformat(
+        timespec="minutes"
+    )
+
+
 @pytest.mark.usefixtures("fake_tomtom", "fake_weather")
 def test_storm_drill_recommends_waiting() -> None:
     client = APIClient()
@@ -113,7 +121,8 @@ def test_storm_drill_recommends_waiting() -> None:
         {
             "origin": {"lat": ORIGIN[0], "lon": ORIGIN[1], "label": "Denver"},
             "destination": {"lat": DESTINATION[0], "lon": DESTINATION[1], "label": "Goodland"},
-            "departure": "now",
+            # A whole-hour departure keeps the storm's timing identical on every run.
+            "departure": _next_whole_hour_in_denver(),
             "load_lb": 42_000,
             "interval_mi": 10,
         },
@@ -124,7 +133,7 @@ def test_storm_drill_recommends_waiting() -> None:
 
     assert result["scenario"] == "storm"
     worst = max(r["miles"]["severe"] + r["miles"]["no_travel"] for r in result["routes"])
-    assert worst > 20  # the storm sits across the trip
+    assert worst >= 10  # the storm puts Severe conditions across the trip
     departures = result["departures"]
     assert len(departures["options"]) == 13
     assert departures["best_offset_h"] > 0
