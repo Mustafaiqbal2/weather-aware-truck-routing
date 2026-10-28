@@ -106,33 +106,58 @@ export function bounds(lines: LngLat[][]): [LngLat, LngLat] {
   ]
 }
 
+/** Screen size of a route label (px) and how far above its anchor it sits. */
+export const LABEL_BOX = { width: 236, height: 46, lift: 12 }
+
 /**
- * Where to put each route's label so labels don't collide: the point in the middle half
- * of each route that is farthest (in screen-proportional Mercator units) from the others.
+ * Where to put each route's label. Candidates run along the middle 70% of each route;
+ * each is scored in screen pixels at the camera's final zoom (`pxPerUnit` = pixels per
+ * Mercator unit). Overlapping an already-placed label costs the most, then being close
+ * to another route's line, then straying from the middle.
  */
-export function labelAnchors(lines: LngLat[][]): LngLat[] {
-  const decimated = lines.map((line) => {
-    const step = Math.max(1, Math.floor(line.length / 120))
-    return line.filter((_, i) => i % step === 0).map(toMercator)
+export function labelAnchors(lines: LngLat[][], pxPerUnit: number): LngLat[] {
+  const { width: W, height: H, lift } = LABEL_BOX
+  const routePx = lines.map((line) => {
+    const step = Math.max(1, Math.floor(line.length / 150))
+    return line
+      .filter((_, i) => i % step === 0)
+      .map((pt) => {
+        const [x, y] = toMercator(pt)
+        return [x * pxPerUnit, y * pxPerUnit] as const
+      })
   })
+  const placed: { x0: number; x1: number; y0: number; y1: number }[] = []
+
   return lines.map((line, r) => {
     const measure = measureLine(line)
     let best: LngLat = pointAtProgress(line, measure, 0.5)
-    let bestScore = -1
-    for (let p = 0.3; p <= 0.701; p += 0.05) {
+    let bestBox = { x0: 0, x1: 0, y0: 0, y1: 0 }
+    let bestScore = -Infinity
+    for (let p = 0.15; p <= 0.851; p += 0.025) {
       const candidate = pointAtProgress(line, measure, p)
-      const m = toMercator(candidate)
+      const [mx, my] = toMercator(candidate)
+      const x = mx * pxPerUnit
+      const y = my * pxPerUnit
+      const box = { x0: x - W / 2, x1: x + W / 2, y0: y - lift - H, y1: y - lift }
+      let overlap = 0
+      for (const b of placed) {
+        const w = Math.min(box.x1, b.x1) - Math.max(box.x0, b.x0)
+        const h = Math.min(box.y1, b.y1) - Math.max(box.y0, b.y0)
+        if (w > 0 && h > 0) overlap += w * h
+      }
       let nearest = Infinity
-      decimated.forEach((other, o) => {
+      routePx.forEach((other, o) => {
         if (o === r) return
-        for (const q of other) nearest = Math.min(nearest, Math.hypot(q[0] - m[0], q[1] - m[1]))
+        for (const [qx, qy] of other) nearest = Math.min(nearest, Math.hypot(qx - x, qy - y))
       })
-      const score = nearest === Infinity ? 1 - Math.abs(p - 0.5) : nearest
+      const score = -overlap + Math.min(nearest, 80) * 4 - Math.abs(p - 0.5) * 40
       if (score > bestScore) {
         bestScore = score
         best = candidate
+        bestBox = box
       }
     }
+    placed.push(bestBox)
     return best
   })
 }

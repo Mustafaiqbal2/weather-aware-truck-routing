@@ -25,6 +25,7 @@ export function RecommendationCard({
       layout
       transition={{ layout: { duration: 0.35, ease: EASE_OUT } }}
       aria-live="polite"
+      aria-label="Recommendation"
       className="relative overflow-hidden rounded-xl border border-line-strong bg-ink-800"
     >
       <AnimatePresence mode="popLayout" initial={false}>

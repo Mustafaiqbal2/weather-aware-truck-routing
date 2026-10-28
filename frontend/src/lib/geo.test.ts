@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   bounds,
+  LABEL_BOX,
+  labelAnchors,
   decimate,
   haversineMiles,
   type LngLat,
@@ -80,5 +82,26 @@ describe('bounds and decimate', () => {
     expect(d).toHaveLength(10)
     expect(d[0]).toEqual([0, 0])
     expect(d[9]).toEqual([999, 0])
+  })
+})
+
+describe('labelAnchors', () => {
+  it('keeps labels of three close, parallel routes from overlapping', () => {
+    const line = (lat: number): LngLat[] => Array.from({ length: 200 }, (_, i) => [-105 + i * 0.09, lat])
+    const lines = [line(40), line(40.15), line(40.3)]
+    const pxPerUnit = 512 * 2 ** 5.5
+    const anchors = labelAnchors(lines, pxPerUnit)
+    const boxes = anchors.map((a) => {
+      const [x, y] = toMercator(a).map((v) => v * pxPerUnit) as [number, number]
+      return { x0: x - LABEL_BOX.width / 2, x1: x + LABEL_BOX.width / 2, y0: y - LABEL_BOX.height, y1: y }
+    })
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i]!
+        const b = boxes[j]!
+        const overlaps = a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1
+        expect(overlaps).toBe(false)
+      }
+    }
   })
 })

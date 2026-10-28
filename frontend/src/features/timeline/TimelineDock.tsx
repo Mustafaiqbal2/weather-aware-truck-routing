@@ -163,7 +163,7 @@ export function TimelineDock({ view }: { view: TripView | undefined }) {
             </button>
           </div>
         </div>
-        <div className="mt-2.5 flex items-center justify-between gap-4">
+        <div className="mt-2.5 hidden items-center justify-between gap-4 md:flex">
           <Legend variable={variable} />
           <p className="hidden text-right text-[11px] text-fg-faint sm:block">
             {failed
@@ -182,7 +182,7 @@ function Ticks({ start, tz }: { start: Date | null; tz: string }) {
   if (!start) return null
   const marks = [0, 12, 24, 36, 48]
   return (
-    <div className="pointer-events-none relative mt-0.5 h-3.5 font-mono text-[10px] text-fg-faint">
+    <div className="pointer-events-none relative mt-0.5 hidden h-3.5 font-mono text-[10px] text-fg-faint sm:block">
       {marks.map((h) => {
         const p = clockParts(new Date(start.getTime() + h * 3_600_000), tz)
         return (

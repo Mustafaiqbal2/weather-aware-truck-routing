@@ -1,18 +1,27 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useMemo } from 'react'
-import { Marker } from 'react-map-gl/maplibre'
+import { Marker, useMap } from 'react-map-gl/maplibre'
 import type { RouteId } from '@/lib/api/client'
 import { cn } from '@/lib/cn'
 import { formatDuration } from '@/lib/format'
-import { labelAnchors, type LngLat } from '@/lib/geo'
+import { bounds, labelAnchors, type LngLat } from '@/lib/geo'
 import { EASE_OUT } from '@/lib/motion'
 import type { RouteView } from '@/lib/queries'
 import { LEVEL_COLOR, LEVEL_LABEL, type Level } from '@/lib/risk'
 import { useTrip } from '@/store/trip'
+import { MAP_PADDING } from './useRouteScene'
 
 /** Route summaries pinned to the map, placed where the routes are farthest apart. */
 export function RouteLabels({ routes }: { routes: RouteView[] }) {
-  const anchors = useMemo(() => labelAnchors(routes.map((r) => r.geometry as LngLat[])), [routes])
+  const { current: mapRef } = useMap()
+  const planKey = routes.map((r) => `${r.id}:${r.distance_mi}`).join('|')
+  // Place labels for the zoom the camera settles on after fitting the routes.
+  const anchors = useMemo(() => {
+    const lines = routes.map((r) => r.geometry as LngLat[])
+    const camera = mapRef?.getMap().cameraForBounds(bounds(lines), { padding: MAP_PADDING })
+    const pxPerUnit = 512 * 2 ** (camera?.zoom ?? 5)
+    return labelAnchors(lines, pxPerUnit)
+  }, [planKey, mapRef]) // eslint-disable-line react-hooks/exhaustive-deps
   const selected = useTrip((s) => s.selectedRouteId)
   const hovered = useTrip((s) => s.hoveredRouteId)
   const selectRoute = useTrip((s) => s.selectRoute)
