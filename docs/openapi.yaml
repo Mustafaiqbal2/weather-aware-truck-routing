@@ -1,0 +1,987 @@
+openapi: 3.0.3
+info:
+  title: Weather-Aware Truck Routing API
+  version: 1.0.0
+paths:
+  /api/assess:
+    post:
+      operationId: assess_create
+      tags:
+      - assess
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/geocode:
+    get:
+      operationId: geocode_list
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: At least 3 characters
+        required: true
+      tags:
+      - geocode
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeocodeResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/health:
+    get:
+      operationId: health_retrieve
+      tags:
+      - health
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+          description: ''
+  /api/heatmap:
+    post:
+      operationId: heatmap_create
+      tags:
+      - heatmap
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatmapRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatmapResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/routes:
+    post:
+      operationId: routes_create
+      tags:
+      - routes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutesRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutesResponse'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '502':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/rules:
+    get:
+      operationId: rules_retrieve
+      tags:
+      - rules
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/schema:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      tags:
+      - schema
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+components:
+  schemas:
+    AssessRequestRequest:
+      type: object
+      properties:
+        load_lb:
+          type: number
+          format: double
+          maximum: 120000
+          minimum: 0
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteInputRequest'
+      required:
+      - load_lb
+      - routes
+    AssessResponse:
+      type: object
+      properties:
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessedRoute'
+        recommendation:
+          $ref: '#/components/schemas/Recommendation'
+      required:
+      - recommendation
+      - routes
+    AssessedCheckpoint:
+      type: object
+      properties:
+        index:
+          type: integer
+        weather:
+          allOf:
+          - $ref: '#/components/schemas/WeatherOut'
+          nullable: true
+        risk:
+          allOf:
+          - $ref: '#/components/schemas/RiskOut'
+          nullable: true
+      required:
+      - index
+      - risk
+      - weather
+    AssessedRoute:
+      type: object
+      properties:
+        id:
+          type: string
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssessedCheckpoint'
+        miles:
+          $ref: '#/components/schemas/Miles'
+        average_risk:
+          type: number
+          format: double
+        max_level:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/MaxLevelEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - average_risk
+      - checkpoints
+      - id
+      - max_level
+      - miles
+    CheckpointInputRequest:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        mile:
+          type: number
+          format: double
+          minimum: 0
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        eta:
+          type: string
+          format: date-time
+      required:
+      - eta
+      - index
+      - lat
+      - lon
+      - mile
+    CheckpointOut:
+      type: object
+      properties:
+        index:
+          type: integer
+        mile:
+          type: number
+          format: double
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        eta:
+          type: string
+          format: date-time
+        tz:
+          type: string
+      required:
+      - eta
+      - index
+      - lat
+      - lon
+      - mile
+      - tz
+    CriterionEnum:
+      enum:
+      - no_travel
+      - severe
+      - high
+      - average
+      - duration
+      - tie
+      - only
+      type: string
+      description: |-
+        * `no_travel` - no_travel
+        * `severe` - severe
+        * `high` - high
+        * `average` - average
+        * `duration` - duration
+        * `tie` - tie
+        * `only` - only
+    DriversEnum:
+      enum:
+      - wind
+      - rain
+      - snow
+      - load
+      type: string
+      description: |-
+        * `wind` - wind
+        * `rain` - rain
+        * `snow` - snow
+        * `load` - load
+    Error:
+      type: object
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+      required:
+      - error
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          nullable: true
+      required:
+      - code
+      - details
+      - message
+    GeocodeResult:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        detail:
+          type: string
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+        kind:
+          type: string
+      required:
+      - detail
+      - id
+      - kind
+      - label
+      - lat
+      - lon
+    HeatmapFrames:
+      type: object
+      properties:
+        risk:
+          type: string
+          description: 'base64 uint8, hour-major: [hour][cell]'
+        wind:
+          type: string
+        rain:
+          type: string
+        snow:
+          type: string
+      required:
+      - rain
+      - risk
+      - snow
+      - wind
+    HeatmapGrid:
+      type: object
+      properties:
+        west:
+          type: number
+          format: double
+        south:
+          type: number
+          format: double
+        east:
+          type: number
+          format: double
+        north:
+          type: number
+          format: double
+        cols:
+          type: integer
+        rows:
+          type: integer
+        cells:
+          type: array
+          items:
+            type: integer
+        edge:
+          type: array
+          items:
+            type: number
+            format: double
+          description: Distance to route / buffer, 0..1, per cell
+      required:
+      - cells
+      - cols
+      - east
+      - edge
+      - north
+      - rows
+      - south
+      - west
+    HeatmapRequestRequest:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        load_lb:
+          type: number
+          format: double
+          maximum: 120000
+          minimum: 0
+        routes:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+                format: double
+              maxItems: 2
+              minItems: 2
+            maxItems: 5000
+            minItems: 2
+          description: Route lines as [[lon, lat], ...]
+          maxItems: 3
+          minItems: 1
+      required:
+      - load_lb
+      - routes
+      - start
+    HeatmapResponse:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        hours:
+          type: integer
+        grid:
+          $ref: '#/components/schemas/HeatmapGrid'
+        scales:
+          $ref: '#/components/schemas/HeatmapScales'
+        nodata:
+          type: integer
+        frames:
+          $ref: '#/components/schemas/HeatmapFrames'
+      required:
+      - frames
+      - grid
+      - hours
+      - nodata
+      - scales
+      - start
+    HeatmapScales:
+      type: object
+      properties:
+        risk:
+          type: number
+          format: double
+        wind:
+          type: number
+          format: double
+        rain:
+          type: number
+          format: double
+        snow:
+          type: number
+          format: double
+      required:
+      - rain
+      - risk
+      - snow
+      - wind
+    IdEnum:
+      enum:
+      - A
+      - B
+      - C
+      type: string
+      description: |-
+        * `A` - A
+        * `B` - B
+        * `C` - C
+    IntervalMiEnum:
+      enum:
+      - 10
+      - 25
+      - 50
+      type: integer
+      description: |-
+        * `10` - 10
+        * `25` - 25
+        * `50` - 50
+    LevelEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
+    LoadEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
+    MaxLevelEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
+    Miles:
+      type: object
+      properties:
+        low:
+          type: number
+          format: double
+        moderate:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        severe:
+          type: number
+          format: double
+        no_travel:
+          type: number
+          format: double
+        unknown:
+          type: number
+          format: double
+      required:
+      - high
+      - low
+      - moderate
+      - no_travel
+      - severe
+      - unknown
+    NullEnum:
+      enum:
+      - null
+    PlaceOut:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        label:
+          type: string
+          maxLength: 200
+        tz:
+          type: string
+      required:
+      - label
+      - lat
+      - lon
+      - tz
+    PlaceRequest:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - label
+      - lat
+      - lon
+    RainEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
+    Recommendation:
+      type: object
+      properties:
+        route_id:
+          type: string
+        ranking:
+          type: array
+          items:
+            type: string
+        criterion:
+          $ref: '#/components/schemas/CriterionEnum'
+        reason:
+          type: string
+        safe:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
+      required:
+      - criterion
+      - ranking
+      - reason
+      - route_id
+      - safe
+      - warnings
+    RiskOut:
+      type: object
+      properties:
+        level:
+          $ref: '#/components/schemas/LevelEnum'
+        value:
+          type: integer
+          maximum: 4
+          minimum: 0
+        wind:
+          $ref: '#/components/schemas/WindEnum'
+        rain:
+          $ref: '#/components/schemas/RainEnum'
+        snow:
+          $ref: '#/components/schemas/SnowEnum'
+        load:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/LoadEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        drivers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DriversEnum'
+        summary:
+          type: string
+      required:
+      - drivers
+      - level
+      - load
+      - rain
+      - snow
+      - summary
+      - value
+      - wind
+    RouteInputRequest:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/IdEnum'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        distance_mi:
+          type: number
+          format: double
+          minimum: 0
+        duration_s:
+          type: number
+          format: double
+          minimum: 0
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckpointInputRequest'
+      required:
+      - checkpoints
+      - distance_mi
+      - duration_s
+      - id
+      - label
+    RouteOut:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        source:
+          $ref: '#/components/schemas/SourceEnum'
+        roads:
+          type: array
+          items:
+            type: string
+        distance_mi:
+          type: number
+          format: double
+        duration_s:
+          type: integer
+        traffic_delay_s:
+          type: integer
+        departure:
+          type: string
+          format: date-time
+        arrival:
+          type: string
+          format: date-time
+        geometry:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+          description: '[[lon, lat], ...]'
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckpointOut'
+      required:
+      - arrival
+      - checkpoints
+      - departure
+      - distance_mi
+      - duration_s
+      - geometry
+      - id
+      - label
+      - roads
+      - source
+      - traffic_delay_s
+    RoutesRequestRequest:
+      type: object
+      properties:
+        origin:
+          $ref: '#/components/schemas/PlaceRequest'
+        destination:
+          $ref: '#/components/schemas/PlaceRequest'
+        departure:
+          type: string
+          description: Local time at the origin, e.g. 2026-11-02T06:30
+        load_lb:
+          type: number
+          format: double
+          maximum: 120000
+          minimum: 0
+        interval_mi:
+          allOf:
+          - $ref: '#/components/schemas/IntervalMiEnum'
+          default: 25
+      required:
+      - departure
+      - destination
+      - load_lb
+      - origin
+    RoutesResponse:
+      type: object
+      properties:
+        origin:
+          $ref: '#/components/schemas/PlaceOut'
+        destination:
+          $ref: '#/components/schemas/PlaceOut'
+        departure:
+          type: string
+          format: date-time
+        load_lb:
+          type: number
+          format: double
+        interval_mi:
+          type: integer
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteOut'
+        warnings:
+          type: array
+          items:
+            type: string
+      required:
+      - departure
+      - destination
+      - interval_mi
+      - load_lb
+      - origin
+      - routes
+      - warnings
+    SnowEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
+    SourceEnum:
+      enum:
+      - tomtom
+      - tomtom_alternative
+      - detour
+      type: string
+      description: |-
+        * `tomtom` - tomtom
+        * `tomtom_alternative` - tomtom_alternative
+        * `detour` - detour
+    WeatherOut:
+      type: object
+      properties:
+        wind_mph:
+          type: number
+          format: double
+        gust_mph:
+          type: number
+          format: double
+          nullable: true
+        rain_in_hr:
+          type: number
+          format: double
+        snow_in_hr:
+          type: number
+          format: double
+        weather_code:
+          type: integer
+          nullable: true
+        valid_from:
+          type: string
+          format: date-time
+        valid_to:
+          type: string
+          format: date-time
+      required:
+      - gust_mph
+      - rain_in_hr
+      - snow_in_hr
+      - valid_from
+      - valid_to
+      - weather_code
+      - wind_mph
+    WindEnum:
+      enum:
+      - low
+      - moderate
+      - high
+      - severe
+      - no_travel
+      type: string
+      description: |-
+        * `low` - low
+        * `moderate` - moderate
+        * `high` - high
+        * `severe` - severe
+        * `no_travel` - no_travel
