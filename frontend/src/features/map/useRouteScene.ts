@@ -20,7 +20,9 @@ export function useRouteScene(
 ) {
   const sceneRef = useRef<RouteScene | null>(null)
   const planKey = view ? `${view.plan.departure}|${view.routes.map((r) => r.id + r.distance_mi).join()}` : ''
-  const assessed = view?.recommendation !== undefined
+  // A new object for every assessment, including a cached one coming back (storm drill off).
+  const recommendation = view?.recommendation
+  const assessed = recommendation !== undefined
   const selected = useTrip((s) => s.selectedRouteId)
   const hovered = useTrip((s) => s.hoveredRouteId)
 
@@ -59,7 +61,7 @@ export function useRouteScene(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- planKey identifies the plan
   }, [ready, planKey])
 
-  // Assessment arrived: colour the routes by risk with a staggered wipe.
+  // An assessment arrived or the scenario changed: colour the routes by risk with a staggered wipe.
   useEffect(() => {
     const scene = sceneRef.current
     if (!scene || !view || !assessed) return
@@ -89,7 +91,7 @@ export function useRouteScene(
       tl.progress(1).kill()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per assessment
-  }, [assessed, planKey])
+  }, [recommendation, planKey])
 
   // Hover / selection emphasis.
   useEffect(() => {

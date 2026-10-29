@@ -2,12 +2,17 @@
 
 Headwind helps a truck driver pick the safest route. It compares three truck routes against the forecast **for the hour the truck reaches each stretch of road**, scores the risk with the assignment's rules and load limits, and recommends a route with a plain-language reason.
 
-- **Live app:** _add the Vercel URL here after deploying_
+- **Live app:** https://headwind-truck-routing.vercel.app
 - **Walkthrough (Loom):** _add the link here_
 
 ![Headwind planning Denver to Chicago through a storm](docs/images/overview.png)
 
-<sub>Screenshot from the end-to-end test fixtures: synthetic routes and a scripted storm, so every risk level shows. Live use draws real TomTom truck routes and the real Open-Meteo forecast.</sub>
+<p>
+  <img src="docs/images/timeline-and-departures.png" alt="Route cards, the best-time-to-leave chart, the checkpoint list and the forecast slider mid-playback" width="70%">
+  <img src="docs/images/phone.png" alt="Phone layout: full-screen map with compact route labels, the forecast dock and the trip sheet" width="25%">
+</p>
+
+<sub>Screenshots from the end-to-end test fixtures: synthetic routes and a scripted storm, so every risk level shows. Live use draws real TomTom truck routes and the real Open-Meteo forecast.</sub>
 
 ## What it does
 
@@ -33,7 +38,7 @@ flowchart LR
   H --> I[Recommendation]
 ```
 
-1. **Routes.** One TomTom request asks for the main route plus alternatives. Two more requests force detours through via-points on either side of the trip, because providers often return alternatives that share most of their road. Routes are de-duplicated by geometric overlap: a candidate sharing more than 85% of its length within 1 km of a chosen route is skipped, and anything over 1.6× the fastest drive time is ignored.
+1. **Routes.** One TomTom request asks for the main route plus two alternatives. Two more requests force detours through via-points on either side of the trip, because providers often return alternatives that share most of their road. Routes are de-duplicated by geometric overlap: a candidate sharing more than 85% of its length within 1 km of a chosen route is skipped, and anything over 1.6× the fastest drive time is ignored.
 2. **Checkpoints.** One at the start, one every interval, and one at the destination, measured by great-circle distance along the full-resolution route.
 3. **ETAs.** TomTom reports travel time at points along the route, reflecting speed limits and typical traffic for the departure time. ETAs are interpolated between those points, not spread at an average speed.
 4. **Weather at the ETA.** Open-Meteo's rain, showers and snowfall are totals for the hour *before* each timestamp, so a truck passing at 14:20 gets the 15:00 values, which cover 14:00–15:00. Wind is an instant reading and is interpolated between 14:00 and 15:00. Rain is rain plus showers. Total precipitation isn't used because it already includes snow and would count it twice. Everything is fetched in metric and converted in one tested module.
@@ -151,7 +156,8 @@ cd frontend && pnpm test && pnpm typecheck && pnpm lint && pnpm e2e
   - **Heatmap:** decoding and the colour table.
   - **Route gradients:** the draw-on and risk-colour expressions.
   - **Utilities:** time-zone formatting and shareable-link parsing.
-- **End to end (Playwright):** runs the production build with deterministic fixtures. Regenerate them with `uv run python scripts/make_e2e_fixtures.py ../frontend/e2e/fixtures`.
+  - **Phone layout:** sheet snap heights and how the camera frames routes above the sheet.
+- **End to end (Playwright):** runs the production build with deterministic fixtures. It covers planning and the recommendation, checkpoint popups, scrubbing the forecast, re-planning from the departure window, the storm drill, shared links, autocomplete, provider errors, a basemap outage, dropping a pin and the phone layout. Regenerate them with `uv run python scripts/make_e2e_fixtures.py ../frontend/e2e/fixtures`.
 
 CI (GitHub Actions) runs all of it, plus a check that the committed OpenAPI schema matches the code.
 

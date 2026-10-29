@@ -31,3 +31,6 @@ test-results/
 Thumbs.db
 .idea/
 .vscode/
+
+# Personal notes (not part of the submission)
+docs/loom-script.md

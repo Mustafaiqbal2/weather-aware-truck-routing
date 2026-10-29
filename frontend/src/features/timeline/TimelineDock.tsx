@@ -51,7 +51,9 @@ export function TimelineDock({ view, compact = false }: { view: TripView | undef
     setHour(0)
   }, [requestId, setHour, setPlaying])
 
-  const startIso = heat.data?.start ?? view?.plan.departure
+  // The forecast starts on the departure hour; use that before the heatmap arrives too,
+  // so the clock and the tick labels don't jump (or overlap) when it loads.
+  const startIso = heat.data?.start ?? (view ? floorToHour(view.plan.departure) : undefined)
   const tz = view?.plan.origin.tz ?? 'UTC'
   const route =
     view?.routes.find((r) => r.id === (selectedId ?? view.recommendation?.route_id)) ?? view?.routes[0]
@@ -236,6 +238,10 @@ export function TimelineDock({ view, compact = false }: { view: TripView | undef
       </div>
     </motion.div>
   )
+}
+
+function floorToHour(iso: string): string {
+  return new Date(Math.floor(Date.parse(iso) / 3_600_000) * 3_600_000).toISOString()
 }
 
 /** Hour marks under the slider. Memoised: the dock re-renders every frame while playing. */
